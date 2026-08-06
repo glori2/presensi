@@ -408,6 +408,7 @@ body {
     justify-content: center;
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
     animation: pulse 2s infinite ease-in-out;
+    z-index: 5;
 }
 
 .scanner-line {
@@ -417,6 +418,7 @@ body {
     background: linear-gradient(to right, transparent, var(--primary), transparent);
     top: 0;
     animation: scan 2s infinite linear;
+    z-index: 6;
 }
 
 .camera-status-text {
@@ -432,16 +434,18 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    z-index: 7;
 }
 
 .status-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--success);
+    background: var(--danger);
 }
 
 .status-dot.active {
+    background: var(--success);
     animation: blink 1s infinite alternate;
 }
 
