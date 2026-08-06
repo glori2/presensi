@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apresi - Aplikasi Presensi Kehadiran Modern</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div>
+                <div class="logo-section">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7v-5z"/>
+                        </svg>
+                    </div>
+                    <span class="logo-text">Apresi.</span>
+                </div>
+                
+                <nav>
+                    <ul class="nav-links">
+                        <li class="nav-item active" id="nav-employee">
+                            <a href="#" onclick="switchView('employee')">
+                                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                Area Karyawan
+                            </a>
+                        </li>
+                        <li class="nav-item" id="nav-admin">
+                            <a href="#" onclick="switchView('admin')">
+                                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                                Panel Admin
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+
+            <div class="user-profile-widget">
+                <div class="user-avatar" id="avatar-initial">JS</div>
+                <div class="user-info">
+                    <div class="user-name" id="profile-name">John Doe</div>
+                    <div class="user-role" id="profile-role">Software Engineer</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            
+            <!-- Welcome Header (Shared) -->
+            <div class="header-container">
+                <div>
+                    <h1 class="welcome-title" id="welcome-message">Selamat Datang, John!</h1>
+                    <p class="welcome-subtitle" id="welcome-subtext">Sudah siap untuk produktif hari ini?</p>
+                </div>
+                <div class="time-widget">
+                    <span class="digital-clock" id="clock">00:00:00</span>
+                    <span class="date-text" id="date">Kamis, 6 Agustus 2026</span>
+                </div>
+            </div>
+
+            <!-- View 1: Employee View -->
+            <div id="view-employee" class="view-panel active">
+                <div class="dashboard-grid">
+                    
+                    <!-- Left: Attendance Console -->
+                    <div class="glass-card">
+                        <h2 class="card-title">
+                            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            Konsol Kehadiran
+                        </h2>
+                        
+                        <div class="attendance-console">
+                            <!-- Type Selector -->
+                            <div class="type-selector">
+                                <label class="type-option">
+                                    <input type="radio" name="presence_type" value="WFO" checked onchange="togglePresenceTypeInputs()">
+                                    <span class="type-label">Kerja di Kantor (WFO)</span>
+                                </label>
+                                <label class="type-option">
+                                    <input type="radio" name="presence_type" value="WFH" onchange="togglePresenceTypeInputs()">
+                                    <span class="type-label">Luar Kantor (WFH)</span>
+                                </label>
+                                <label class="type-option">
+                                    <input type="radio" name="presence_type" value="ABSEN" onchange="togglePresenceTypeInputs()">
+                                    <span class="type-label">Tidak Hadir (Izin)</span>
+                                </label>
+                            </div>
+
+                            <!-- Dynamic form fields depending on type -->
+                            <div class="dynamic-form-area" id="dynamic-fields">
+                                <!-- WFO Inputs (Default) -->
+                                <div id="fields-wfo" class="form-group">
+                                    <label>Simulasi Lokasi GPS Kantor</label>
+                                    <div style="display: flex; gap: 10px;">
+                                        <input type="text" class="form-input" id="wfo-coords" value="-6.2088, 106.8456 (Dalam Radius 15m)" style="flex: 1;" readonly>
+                                        <button class="btn btn-primary" onclick="simulateGPS()" style="width: auto; padding: 0 1rem; font-size: 0.85rem;">Scan Lokasi</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- WFH / Dinas Inputs -->
+                                <div id="fields-wfh" class="form-group" style="display: none;">
+                                    <label for="wfh-location">Nama Lokasi / Tempat Bertugas</label>
+                                    <input type="text" class="form-input" id="wfh-location" placeholder="Contoh: Rumah, Cafe Kemang, Kantor Client">
+                                    
+                                    <label style="margin-top: 10px;" for="wfh-notes">Catatan Rencana Aktivitas</label>
+                                    <input type="text" class="form-input" id="wfh-notes" placeholder="Contoh: Refactoring module auth, meeting client">
+                                </div>
+
+                                <!-- Absen / Izin Inputs -->
+                                <div id="fields-absen" class="form-group" style="display: none;">
+                                    <label for="absen-reason">Alasan Tidak Hadir</label>
+                                    <select class="form-input" id="absen-reason">
+                                        <option value="Sakit">Sakit (Memerlukan Surat Dokter)</option>
+                                        <option value="Izin">Izin Urgent</option>
+                                        <option value="Cuti">Cuti Tahunan</option>
+                                    </select>
+                                    
+                                    <label style="margin-top: 10px;" for="absen-notes">Keterangan Tambahan</label>
+                                    <input type="text" class="form-input" id="absen-notes" placeholder="Contoh: Demam, ada acara keluarga mendesak">
+                                </div>
+                            </div>
+
+                            <!-- Camera Face Scan Mockup -->
+                            <div id="camera-section">
+                                <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.5rem; display: block;">Simulasi Kamera Pemindaian Wajah</label>
+                                <div class="camera-sim-box">
+                                    <div class="scanner-line" id="scanner-line" style="display: none;"></div>
+                                    <div class="face-mesh-overlay" id="face-overlay" style="display: none;">
+                                        <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24" style="color: var(--primary);">
+                                            <path d="M12 2c5.52 0 10 4.48 10 10s-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2zm0 18c4.41 0 8-3.59 8-8s-3.59-8-8-8-8 3.59-8 8 3.59 8 8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                                        </svg>
+                                    </div>
+                                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600" class="camera-feed" id="camera-feed" alt="Simulasi Kamera">
+                                    <div class="camera-status-text">
+                                        <div class="status-dot active" id="camera-dot"></div>
+                                        <span id="camera-status-label">Kamera Siap</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="action-button-group">
+                                <button class="btn btn-primary" id="btn-checkin" onclick="performCheckIn()">
+                                    Check-In Presensi
+                                </button>
+                                <button class="btn btn-danger" id="btn-checkout" onclick="performCheckOut()" style="display: none;">
+                                    Check-Out Presensi
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Personal stats & logs -->
+                    <div>
+                        <!-- Quick Stats -->
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <span class="stat-label">Persentase Kehadiran</span>
+                                <span class="stat-value" id="stat-attendance-rate">100%</span>
+                                <span class="stat-footer up">Bulan ini</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Total Jam Kerja</span>
+                                <span class="stat-value" id="stat-hours">0h</span>
+                                <span class="stat-footer">Bulan ini</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Kehadiran Tepat Waktu</span>
+                                <span class="stat-value" id="stat-ontime">0</span>
+                                <span class="stat-footer up">Hari hadir</span>
+                            </div>
+                        </div>
+
+                        <!-- Logs History Card -->
+                        <div class="glass-card" style="margin-top: 1rem;">
+                            <h2 class="card-title">Riwayat Presensi Anda</h2>
+                            
+                            <div class="table-container">
+                                <table class="table" id="personal-history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Tanggal</th>
+                                            <th>Tipe</th>
+                                            <th>Masuk</th>
+                                            <th>Keluar</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="personal-history-body">
+                                        <!-- Will be filled by js -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- View 2: Admin View -->
+            <div id="view-admin" class="view-panel">
+                <div class="admin-summary-grid">
+                    <div class="stat-card">
+                        <span class="stat-label">Total Karyawan</span>
+                        <span class="stat-value" id="admin-total-emp">1</span>
+                    </div>
+                    <div class="stat-card" style="border-left: 3px solid var(--primary);">
+                        <span class="stat-label">Total Hadir (WFO)</span>
+                        <span class="stat-value" id="admin-total-wfo">0</span>
+                    </div>
+                    <div class="stat-card" style="border-left: 3px solid var(--success);">
+                        <span class="stat-label">Total Hadir (WFH)</span>
+                        <span class="stat-value" id="admin-total-wfh">0</span>
+                    </div>
+                    <div class="stat-card" style="border-left: 3px solid var(--warning);">
+                        <span class="stat-label">Total Tidak Hadir</span>
+                        <span class="stat-value" id="admin-total-absent">0</span>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <!-- Left: All employee logs -->
+                    <div class="glass-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h2 class="card-title" style="margin-bottom: 0;">Monitoring Kehadiran Real-time</h2>
+                            <button class="btn btn-success" style="width: auto; padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="exportToCSV()">Export CSV</button>
+                        </div>
+
+                        <!-- Search and Filter Row -->
+                        <div class="search-filter-row">
+                            <input type="text" class="form-input" id="search-employee" placeholder="Cari nama karyawan..." oninput="filterAdminLogs()">
+                            <select class="form-input" id="filter-presence-type" onchange="filterAdminLogs()">
+                                <option value="ALL">Semua Jenis Kehadiran</option>
+                                <option value="WFO">Kerja di Kantor (WFO)</option>
+                                <option value="WFH">Luar Kantor (WFH)</option>
+                                <option value="ABSEN">Tidak Hadir (Izin/Sakit)</option>
+                            </select>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="table" id="admin-logs-table">
+                                <thead>
+                                    <tr>
+                                        <th>Karyawan</th>
+                                        <th>Tanggal</th>
+                                        <th>Tipe</th>
+                                        <th>Masuk</th>
+                                        <th>Keluar</th>
+                                        <th>Detail / Keterangan</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-logs-body">
+                                    <!-- Will be filled by js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Right: Add employee Form -->
+                    <div class="glass-card">
+                        <h2 class="card-title">Registrasi Karyawan Baru</h2>
+                        <div class="attendance-console">
+                            <div class="form-group">
+                                <label for="new-emp-name">Nama Lengkap</label>
+                                <input type="text" class="form-input" id="new-emp-name" placeholder="Masukkan nama...">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-emp-role">Jabatan / Role</label>
+                                <input type="text" class="form-input" id="new-emp-role" placeholder="Contoh: Marketing Executive">
+                            </div>
+                            <button class="btn btn-primary" onclick="registerNewEmployee()">Tambah Karyawan</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
