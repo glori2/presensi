@@ -23,7 +23,7 @@ let webcamStream = null;
 // Office coordinates (User configured: -7.891848, 110.080841)
 const OFFICE_LAT = -7.891848418181234;
 const OFFICE_LNG = 110.08084144673063;
-const MAX_RADIUS_METERS = 50;
+const MAX_RADIUS_METERS = 100;
 let latestDistance = null;
 
 // Initialize on DOM load
