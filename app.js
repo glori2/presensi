@@ -23,6 +23,7 @@ let dailyJournals = [];
 let currentEmployeeId = "emp-1";
 let clockInterval = null;
 let webcamStream = null;
+let editingEmployeeId = null;
 
 // Office coordinates & radius configuration (Yogyakarta / Central Java - Kalurahan Kalidengen)
 let OFFICE_LAT = -7.891848418181234;
@@ -1288,29 +1289,68 @@ async function registerNewEmployee() {
         return;
     }
 
-    const newEmp = {
-        id: "emp-" + Date.now(),
-        nik: nik,
-        name: name,
-        role: role,
-        department: department,
-        email: `${name.toLowerCase().replace(/\s+/g, '.')}@kalidengen.go.id`,
-        avatar_url: ""
-    };
+    if (editingEmployeeId !== null) {
+        // Edit Mode
+        const empIndex = employees.findIndex(e => e.id === editingEmployeeId);
+        if (empIndex === -1) return;
 
-    let pushSuccess = false;
-    if (supabaseClient) {
-        try {
-            const { error } = await supabaseClient.from('employees').insert([newEmp]);
-            if (!error) pushSuccess = true;
-        } catch (e) {
-            console.error("Gagal daftar karyawan baru di Supabase:", e);
+        const updatedEmp = {
+            ...employees[empIndex],
+            nik: nik,
+            name: name,
+            role: role,
+            department: department,
+            email: `${name.toLowerCase().replace(/\s+/g, '.')}@kalidengen.go.id`
+        };
+
+        if (supabaseClient) {
+            try {
+                await supabaseClient.from('employees').update({
+                    nik: nik,
+                    name: name,
+                    role: role,
+                    department: department,
+                    email: updatedEmp.email
+                }).eq('id', editingEmployeeId);
+            } catch (e) {
+                console.error("Gagal update pamong di Supabase:", e);
+            }
         }
+
+        employees[empIndex] = updatedEmp;
+        localStorage.setItem("apresi_employees", JSON.stringify(employees));
+
+        // Reset edit states
+        editingEmployeeId = null;
+        document.getElementById("new-employee-form-title").textContent = "Registrasi Pamong Baru";
+        document.getElementById("new-employee-submit-btn").textContent = "Tambah Karyawan";
+        showToast(`Data Pamong "${name}" berhasil diubah!`, "success");
+    } else {
+        // Insert Mode
+        const newEmp = {
+            id: "emp-" + Date.now(),
+            nik: nik,
+            name: name,
+            role: role,
+            department: department,
+            email: `${name.toLowerCase().replace(/\s+/g, '.')}@kalidengen.go.id`,
+            avatar_url: ""
+        };
+
+        if (supabaseClient) {
+            try {
+                await supabaseClient.from('employees').insert([newEmp]);
+            } catch (e) {
+                console.error("Gagal daftar pamong baru di Supabase:", e);
+            }
+        }
+
+        employees.push(newEmp);
+        localStorage.setItem("apresi_employees", JSON.stringify(employees));
+        showToast(`Pamong ${name} berhasil didaftarkan!`, "success");
     }
 
-    employees.push(newEmp);
-    localStorage.setItem("apresi_employees", JSON.stringify(employees));
-
+    // Reset Form Fields
     nikInput.value = "";
     nameInput.value = "";
     roleInput.value = "";
@@ -1319,7 +1359,6 @@ async function registerNewEmployee() {
     updateAdminStats();
     renderPublicDashboard();
     renderAdminEmployeeManageList();
-    showToast(`Pamong ${name} berhasil didaftarkan!`, "success");
 }
 
 // SheetJS Excel Export
@@ -1451,6 +1490,7 @@ function renderAdminEmployeeManageList() {
         const deleteButton = isSelf 
             ? `<span style="font-size:0.75rem; color:var(--text-secondary); font-style:italic;">Sedang Aktif</span>`
             : `<button class="btn btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; background: var(--danger);" onclick="deleteEmployee('${emp.id}')">Hapus</button>`;
+        const editButton = `<button class="btn btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; background: #3b82f6; margin-right: 5px;" onclick="editEmployeeInline('${emp.id}')">Ubah</button>`;
 
         tbody.innerHTML += `
             <tr>
@@ -1458,7 +1498,10 @@ function renderAdminEmployeeManageList() {
                 <td>${emp.nik}</td>
                 <td>${emp.role}</td>
                 <td>${emp.department}</td>
-                <td>${deleteButton}</td>
+                <td>
+                    ${editButton}
+                    ${deleteButton}
+                </td>
             </tr>
         `;
     });
@@ -1505,9 +1548,37 @@ async function deleteEmployee(empId) {
 
     showToast(`Pamong "${emp.name}" berhasil dihapus dari sistem!`, "success");
     
+    // Reset editing if the deleted employee was being edited
+    if (editingEmployeeId === empId) {
+        editingEmployeeId = null;
+        document.getElementById("new-employee-form-title").textContent = "Registrasi Pamong Baru";
+        document.getElementById("new-employee-submit-btn").textContent = "Tambah Karyawan";
+    }
+
     // Refresh Dropdowns and Lists
     injectEmployeeSelector();
     updateAdminStats();
     renderPublicDashboard();
     renderAdminEmployeeManageList();
+}
+
+// Prefill form for inline employee editing
+function editEmployeeInline(empId) {
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    editingEmployeeId = empId;
+
+    // Fill form
+    document.getElementById("new-emp-nik").value = emp.nik;
+    document.getElementById("new-emp-name").value = emp.name;
+    document.getElementById("new-emp-role").value = emp.role;
+    document.getElementById("new-emp-dept").value = emp.department;
+
+    // Change Form Visual Mode to Edit
+    document.getElementById("new-employee-form-title").textContent = "Ubah Data Pamong: " + emp.name;
+    document.getElementById("new-employee-submit-btn").textContent = "Simpan Perubahan";
+    document.getElementById("new-emp-nik").focus();
+
+    showToast(`Mode edit diaktifkan untuk: ${emp.name}`, "info");
 }
