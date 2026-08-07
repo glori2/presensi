@@ -15,7 +15,8 @@ try {
 let employees = [
     { id: "emp-1", nik: "NIK202601", name: "John Doe", role: "Software Engineer", department: "IT & Engineering", email: "john.doe@apresi.local", avatar_url: "" },
     { id: "emp-2", nik: "NIK202602", name: "Rian Hidayat", role: "Kepala Kantor", department: "Admin", email: "rian.h@apresi.local", avatar_url: "" },
-    { id: "emp-3", nik: "NIK202603", name: "Siti Aminah", role: "Staf Administrasi", department: "Sekretariat", email: "siti.a@apresi.local", avatar_url: "" }
+    { id: "emp-3", nik: "NIK202603", name: "Siti Aminah", role: "Staf Administrasi", department: "Sekretariat", email: "siti.a@apresi.local", avatar_url: "" },
+    { id: "emp-1786005897894", nik: "3401010808880002", name: "Muh Masruri Mustofa", role: "Super Admin", department: "Admin", email: "masruri@kalidengen.go.id", avatar_url: "" }
 ];
 let attendanceLogs = [];
 let dailyJournals = [];
@@ -158,6 +159,12 @@ function startClock() {
 function isCurrentUserAdmin() {
     const current = getCurrentEmployee();
     if (!current) return false;
+    
+    // Explicit Super Admin authorization for Muh Masruri Mustofa
+    if (current.nik === "3401010808880002" || current.name.toLowerCase().includes("masruri")) {
+        return true;
+    }
+    
     const role = (current.role || "").toLowerCase();
     const dept = (current.department || "").toLowerCase();
     return role.includes("admin") || role.includes("kepala") || dept.includes("admin");
