@@ -18,25 +18,64 @@ let employees = [
     { id: "emp-3", nik: "NIK202603", name: "Siti Aminah", role: "Staf Administrasi", department: "Sekretariat", email: "siti.a@apresi.local", avatar_url: "" }
 ];
 let attendanceLogs = [];
+let dailyJournals = [];
 let currentEmployeeId = "emp-1";
 let clockInterval = null;
 let webcamStream = null;
 
-// Office coordinates (Yogyakarta / Central Java - User configured)
-const OFFICE_LAT = -7.891848418181234;
-const OFFICE_LNG = 110.08084144673063;
-const MAX_RADIUS_METERS = 100;
+// Office coordinates & radius configuration (Yogyakarta / Central Java - Kalurahan Kalidengen)
+let OFFICE_LAT = -7.891848418181234;
+let OFFICE_LNG = 110.08084144673063;
+let MAX_RADIUS_METERS = 100;
 let latestDistance = null;
 
 // Initialize on DOM load
 window.addEventListener("DOMContentLoaded", async () => {
     startClock();
+    loadOfficeConfigFromStorage();
     await loadInitialData();
     injectEmployeeSelector();
     updateUserProfileUI();
     syncUIState();
     switchView('public'); // Default view
 });
+
+// Load coordinates config from storage
+function loadOfficeConfigFromStorage() {
+    if (localStorage.getItem("apresi_config")) {
+        const config = JSON.parse(localStorage.getItem("apresi_config"));
+        OFFICE_LAT = parseFloat(config.lat);
+        OFFICE_LNG = parseFloat(config.lng);
+        MAX_RADIUS_METERS = parseInt(config.radius);
+    }
+    // Populate config fields
+    const latField = document.getElementById("config-lat");
+    const lngField = document.getElementById("config-lng");
+    const radiusField = document.getElementById("config-radius");
+    if (latField) latField.value = OFFICE_LAT;
+    if (lngField) lngField.value = OFFICE_LNG;
+    if (radiusField) radiusField.value = MAX_RADIUS_METERS;
+}
+
+// Save Office Config
+function saveOfficeConfig() {
+    const lat = parseFloat(document.getElementById("config-lat").value);
+    const lng = parseFloat(document.getElementById("config-lng").value);
+    const radius = parseInt(document.getElementById("config-radius").value);
+
+    if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+        showToast("Koordinat dan radius tidak valid!", "error");
+        return;
+    }
+
+    OFFICE_LAT = lat;
+    OFFICE_LNG = lng;
+    MAX_RADIUS_METERS = radius;
+
+    localStorage.setItem("apresi_config", JSON.stringify({ lat, lng, radius }));
+    showToast("Konfigurasi kantor berhasil disimpan!", "success");
+    getCurrentGPS(); // Recalculate
+}
 
 // Load data from Supabase (with LocalStorage fallback)
 async function loadInitialData() {
@@ -50,18 +89,22 @@ async function loadInitialData() {
                 if (dbEmployees.length > 0) {
                     employees = dbEmployees;
                 } else {
-                    // Database kosong, masukkan karyawan default ke Supabase
                     await supabaseClient.from('employees').insert(employees);
                 }
                 supabaseSuccess = true;
-            } else if (empErr) {
-                console.warn("Menggunakan LocalStorage karena query employees error:", empErr.message);
             }
 
             // Load Logs
             const { data: dbLogs, error: logErr } = await supabaseClient.from('attendance_logs').select('*').order('created_at', { ascending: false });
             if (!logErr && dbLogs) {
                 attendanceLogs = dbLogs;
+                supabaseSuccess = true;
+            }
+
+            // Load Journals
+            const { data: dbJournals, error: jnErr } = await supabaseClient.from('daily_journals').select('*').order('created_at', { ascending: false });
+            if (!jnErr && dbJournals) {
+                dailyJournals = dbJournals;
                 supabaseSuccess = true;
             }
         } catch (err) {
@@ -82,6 +125,12 @@ async function loadInitialData() {
         } else {
             localStorage.setItem("apresi_logs", JSON.stringify(attendanceLogs));
         }
+
+        if (localStorage.getItem("apresi_journals")) {
+            dailyJournals = JSON.parse(localStorage.getItem("apresi_journals"));
+        } else {
+            localStorage.setItem("apresi_journals", JSON.stringify(dailyJournals));
+        }
     }
 
     // Set active user
@@ -98,14 +147,14 @@ function startClock() {
     
     function update() {
         const now = new Date();
-        clockEl.textContent = now.toLocaleTimeString('id-ID', { hour12: false });
-        dateEl.textContent = now.toLocaleDateString('id-ID', optionsDate);
+        if (clockEl) clockEl.textContent = now.toLocaleTimeString('id-ID', { hour12: false });
+        if (dateEl) dateEl.textContent = now.toLocaleDateString('id-ID', optionsDate);
     }
     update();
     clockInterval = setInterval(update, 1000);
 }
 
-// Check if current user is admin
+// Check Admin role
 function isCurrentUserAdmin() {
     const current = getCurrentEmployee();
     if (!current) return false;
@@ -114,11 +163,10 @@ function isCurrentUserAdmin() {
     return role.includes("admin") || role.includes("kepala") || dept.includes("admin");
 }
 
-// SPA Routing
+// SPA Navigation
 function switchView(viewName) {
     stopCameraStream();
 
-    // Access control: if switching to admin but not admin, block
     if (viewName === 'admin' && !isCurrentUserAdmin()) {
         showToast("Akses ditolak! Menu Admin hanya untuk Kepala Kantor / Admin.", "error");
         switchView('public');
@@ -133,16 +181,17 @@ function switchView(viewName) {
     if (viewName === "public") {
         document.getElementById("view-public").classList.add("active");
         document.getElementById("nav-public").classList.add("active");
-        document.getElementById("welcome-message").textContent = "Dashboard Kehadiran Aparat";
+        document.getElementById("welcome-message").textContent = "Dashboard Kinerja & Kehadiran Pamong";
         document.getElementById("welcome-subtext").textContent = "Monitor status kehadiran seluruh aparatur hari ini.";
         renderPublicDashboard();
     } else if (viewName === "employee") {
         document.getElementById("view-employee").classList.add("active");
         document.getElementById("nav-employee").classList.add("active");
         document.getElementById("welcome-message").textContent = `Selamat Datang, ${employee.name}!`;
-        document.getElementById("welcome-subtext").textContent = "Sudah siap untuk produktif hari ini?";
-        checkTodayAttendanceState();
-        getCurrentGPS();
+        document.getElementById("welcome-subtext").textContent = "Kelola kehadiran dan laporkan aktivitas harian Anda.";
+        switchEmployeeSubtab('presensi');
+        // Reset subtab selectors
+        document.querySelector('input[name="emp_subtab"][value="presensi"]').checked = true;
     } else if (viewName === "profile") {
         document.getElementById("view-profile").classList.add("active");
         document.getElementById("nav-profile").classList.add("active");
@@ -152,14 +201,51 @@ function switchView(viewName) {
     } else if (viewName === "admin") {
         document.getElementById("view-admin").classList.add("active");
         document.getElementById("nav-admin").classList.add("active");
-        document.getElementById("welcome-message").textContent = "Panel Administrasi";
-        document.getElementById("welcome-subtext").textContent = "Pantau dan kelola data presensi seluruh karyawan.";
-        updateAdminStats();
-        renderAdminLogs();
+        document.getElementById("welcome-message").textContent = "Panel Admin Lurah / Carik";
+        document.getElementById("welcome-subtext").textContent = "Persetujuan kinerja dan evaluasi TPP Pamong Kalidengen.";
+        switchAdminSubtab('monitoring');
+        // Reset subtab selectors
+        document.querySelector('input[name="admin_subtab"][value="monitoring"]').checked = true;
     }
 }
 
-// User helper
+// Switch Employee sub-tabs
+function switchEmployeeSubtab(tabName) {
+    document.querySelectorAll(".employee-subtab-panel").forEach(panel => panel.style.display = "none");
+    
+    if (tabName === 'presensi') {
+        document.getElementById("emp-subtab-presensi").style.display = "block";
+        checkTodayAttendanceState();
+        getCurrentGPS();
+    } else if (tabName === 'jurnal') {
+        document.getElementById("emp-subtab-jurnal").style.display = "block";
+        // Set default date for journal input as today
+        document.getElementById("journal-date").value = new Date().toISOString().split("T")[0];
+        renderPersonalJournals();
+    }
+}
+
+// Switch Admin sub-tabs
+function switchAdminSubtab(tabName) {
+    document.querySelectorAll(".admin-subtab-panel").forEach(panel => panel.style.display = "none");
+
+    if (tabName === 'monitoring') {
+        document.getElementById("admin-subtab-monitoring").style.display = "block";
+        updateAdminStats();
+        renderAdminLogs();
+    } else if (tabName === 'persetujuan') {
+        document.getElementById("admin-subtab-persetujuan").style.display = "block";
+        renderAdminApprovalList();
+    } else if (tabName === 'tukin') {
+        document.getElementById("admin-subtab-tukin").style.display = "block";
+        renderTukinCalculation();
+    } else if (tabName === 'konfigurasi') {
+        document.getElementById("admin-subtab-konfigurasi").style.display = "block";
+        loadOfficeConfigFromStorage();
+    }
+}
+
+// User Profile management
 function getCurrentEmployee() {
     return employees.find(emp => emp.id === currentEmployeeId) || employees[0];
 }
@@ -178,13 +264,11 @@ function updateUserProfileUI() {
         avatarEl.textContent = initials;
     }
 
-    // Sidebar Admin Access Control: Show/Hide based on role
     const adminNav = document.getElementById("nav-admin");
     if (isCurrentUserAdmin()) {
         adminNav.style.display = "block";
     } else {
         adminNav.style.display = "none";
-        // If current view was admin, redirect back
         if (document.getElementById("view-admin").classList.contains("active")) {
             switchView('public');
         }
@@ -192,7 +276,7 @@ function updateUserProfileUI() {
 }
 
 function injectEmployeeSelector() {
-    const consoleCard = document.querySelector(".attendance-console");
+    const consoleCard = document.querySelector("#emp-subtab-presensi .attendance-console");
     if (!consoleCard) return;
 
     const oldSelector = document.getElementById("demo-user-selector-group");
@@ -221,11 +305,7 @@ function injectEmployeeSelector() {
 async function changeActiveUser(id) {
     currentEmployeeId = id;
     updateUserProfileUI();
-    checkTodayAttendanceState();
-    getCurrentGPS();
-    renderPersonalLogs();
-    updatePersonalStats();
-    renderPublicDashboard();
+    syncUIState();
     showToast(`Beralih ke karyawan: ${getCurrentEmployee().name}`, "success");
 }
 
@@ -257,6 +337,8 @@ function getCurrentGPS() {
     const coordsInput = document.getElementById("wfo-coords");
     const distanceHint = document.getElementById("wfo-distance-hint");
 
+    if (!coordsInput) return;
+
     if (!navigator.geolocation) {
         coordsInput.value = "GPS tidak didukung oleh browser Anda";
         return;
@@ -285,27 +367,115 @@ function getCurrentGPS() {
         },
         (error) => {
             console.error("GPS Error:", error);
-            coordsInput.value = "-7.891848, 110.080841 (Default Lokasi Kantor - Izin GPS Ditolak)";
-            distanceHint.textContent = "Gagal memindai lokasi. Memakai koordinat default.";
+            coordsInput.value = `${OFFICE_LAT.toFixed(6)}, ${OFFICE_LNG.toFixed(6)} (Lokasi Kantor - GPS Mati)`;
+            distanceHint.textContent = "Gagal memindai lokasi. Memakai koordinat kantor.";
             distanceHint.style.color = 'var(--warning)';
+            latestDistance = 0; // Bypass warning for local demo if GPS fails
         },
         { enableHighAccuracy: true, timeout: 10000 }
     );
 }
 
-function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3;
-    const phi1 = lat1 * Math.PI / 180;
-    const phi2 = lat2 * Math.PI / 180;
-    const deltaPhi = (lat2 - lat1) * Math.PI / 180;
-    const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+// Work Schedule Constraints (Luar Ramadan)
+function getPresenceTimeConfig() {
+    const now = new Date();
+    const day = now.getDay(); 
+    
+    let config = {
+        isWorkday: true,
+        startTime: "07:30",
+        endTime: "15:45",
+        inStart: "06:30",
+        inEnd: "08:30",
+        outStart: "14:45",
+        outEnd: "16:45"
+    };
 
-    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-              Math.cos(phi1) * Math.cos(phi2) *
-              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    if (day === 0 || day === 6) {
+        config.isWorkday = false;
+    } else if (day === 5) { // Jumat
+        config.endTime = "15:30";
+        config.outStart = "14:30";
+        config.outEnd = "16:30";
+    }
 
-    return R * c;
+    return config;
+}
+
+// Check Presence State & Lock
+function checkTodayAttendanceState() {
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
+    const logToday = attendanceLogs.find(l => l.employee_id === currentEmployeeId && l.date === today);
+
+    const btnCheckin = document.getElementById("btn-checkin");
+    const btnCheckout = document.getElementById("btn-checkout");
+    const timeConfig = getPresenceTimeConfig();
+
+    if (!btnCheckin) return;
+
+    if (!timeConfig.isWorkday) {
+        btnCheckin.style.display = "block";
+        btnCheckin.disabled = true;
+        btnCheckin.textContent = "Hari Ini Libur Akhir Pekan";
+        btnCheckout.style.display = "none";
+        return;
+    }
+
+    if (logToday) {
+        if (logToday.type === "ABSEN") {
+            btnCheckin.style.display = "block";
+            btnCheckin.disabled = true;
+            btnCheckin.textContent = `Sudah Izin (${logToday.status})`;
+            btnCheckout.style.display = "none";
+        } else if (logToday.check_out_time) {
+            btnCheckin.style.display = "block";
+            btnCheckin.disabled = true;
+            btnCheckin.textContent = "Selesai Kerja Hari Ini";
+            btnCheckout.style.display = "none";
+        } else {
+            const [outHStart, outMStart] = timeConfig.outStart.split(":").map(Number);
+            const [outHEnd, outMEnd] = timeConfig.outEnd.split(":").map(Number);
+            const curH = now.getHours();
+            const curM = now.getMinutes();
+
+            const isCheckoutOpen = (curH > outHStart || (curH === outHStart && curM >= outMStart)) &&
+                                  (curH < outHEnd || (curH === outHEnd && curM <= outMEnd));
+
+            btnCheckin.style.display = "none";
+            btnCheckout.style.display = "block";
+
+            if (!isCheckoutOpen) {
+                btnCheckout.disabled = true;
+                btnCheckout.textContent = `Check-Out Belum/Selesai Dibuka (${timeConfig.outStart} - ${timeConfig.outEnd})`;
+            } else {
+                btnCheckout.disabled = false;
+                btnCheckout.textContent = "Check-Out Presensi";
+            }
+        }
+    } else {
+        const [inHStart, inMStart] = timeConfig.inStart.split(":").map(Number);
+        const [inHEnd, inMEnd] = timeConfig.inEnd.split(":").map(Number);
+        const curH = now.getHours();
+        const curM = now.getMinutes();
+
+        const isCheckinOpen = (curH > inHStart || (curH === inHStart && curM >= inMStart)) &&
+                             (curH < inHEnd || (curH === inHEnd && curM <= inMEnd));
+
+        btnCheckin.style.display = "block";
+        btnCheckout.style.display = "none";
+        togglePresenceTypeInputs();
+
+        const type = document.querySelector('input[name="presence_type"]:checked')?.value || "WFO";
+        
+        if (type !== "ABSEN" && !isCheckinOpen) {
+            btnCheckin.disabled = true;
+            btnCheckin.textContent = `Check-In Ditutup (${timeConfig.inStart} - ${timeConfig.inEnd})`;
+        } else {
+            btnCheckin.disabled = false;
+            btnCheckin.textContent = type === "ABSEN" ? "Kirim Permohonan Izin / Cuti" : "Check-In Presensi";
+        }
+    }
 }
 
 // Real Webcam Handling
@@ -377,130 +547,6 @@ function stopCameraStream() {
     }
 }
 
-// Work Schedule Constraints (Luar Ramadan)
-// Senin - Kamis: 07:30 s.d 15:45 (Jendela masuk: 06:30 - 08:30) (Jendela pulang: 14:45 - 16:45)
-// Jumat: 07:30 s.d 15:30 (Jendela masuk: 06:30 - 08:30) (Jendela pulang: 14:30 - 16:30)
-function getPresenceTimeConfig() {
-    const now = new Date();
-    const day = now.getDay(); // 0: Minggu, 1: Senin, ..., 5: Jumat, 6: Sabtu
-    
-    // Default schedule setup
-    let config = {
-        isWorkday: true,
-        startTime: "07:30",
-        endTime: "15:45",
-        inStart: "06:30",
-        inEnd: "08:30",
-        outStart: "14:45",
-        outEnd: "16:45"
-    };
-
-    if (day === 0 || day === 6) {
-        config.isWorkday = false;
-    } else if (day === 5) { // Jumat
-        config.endTime = "15:30";
-        config.outStart = "14:30";
-        config.outEnd = "16:30";
-    }
-
-    return config;
-}
-
-// Check Work Hours Windows
-function checkTodayAttendanceState() {
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
-    const logToday = attendanceLogs.find(l => l.employee_id === currentEmployeeId && l.date === today);
-
-    const btnCheckin = document.getElementById("btn-checkin");
-    const btnCheckout = document.getElementById("btn-checkout");
-    const timeConfig = getPresenceTimeConfig();
-
-    if (!timeConfig.isWorkday) {
-        btnCheckin.style.display = "block";
-        btnCheckin.disabled = true;
-        btnCheckin.textContent = "Hari Ini Libur Akhir Pekan";
-        btnCheckout.style.display = "none";
-        return;
-    }
-
-    if (logToday) {
-        if (logToday.type === "ABSEN") {
-            btnCheckin.style.display = "block";
-            btnCheckin.disabled = true;
-            btnCheckin.textContent = `Sudah Izin (${logToday.status})`;
-            btnCheckout.style.display = "none";
-        } else if (logToday.check_out_time) {
-            btnCheckin.style.display = "block";
-            btnCheckin.disabled = true;
-            btnCheckin.textContent = "Selesai Kerja Hari Ini";
-            btnCheckout.style.display = "none";
-        } else {
-            // Check-out button window validation
-            const [outHStart, outMStart] = timeConfig.outStart.split(":").map(Number);
-            const [outHEnd, outMEnd] = timeConfig.outEnd.split(":").map(Number);
-            const curH = now.getHours();
-            const curM = now.getMinutes();
-
-            const isCheckoutOpen = (curH > outHStart || (curH === outHStart && curM >= outMStart)) &&
-                                  (curH < outHEnd || (curH === outHEnd && curM <= outMEnd));
-
-            btnCheckin.style.display = "none";
-            btnCheckout.style.display = "block";
-
-            if (!isCheckoutOpen) {
-                btnCheckout.disabled = true;
-                btnCheckout.textContent = `Check-Out Belum/Selesai Dibuka (${timeConfig.outStart} - ${timeConfig.outEnd})`;
-            } else {
-                btnCheckout.disabled = false;
-                btnCheckout.textContent = "Check-Out Presensi";
-            }
-        }
-    } else {
-        // Check-in button window validation
-        const [inHStart, inMStart] = timeConfig.inStart.split(":").map(Number);
-        const [inHEnd, inMEnd] = timeConfig.inEnd.split(":").map(Number);
-        const curH = now.getHours();
-        const curM = now.getMinutes();
-
-        const isCheckinOpen = (curH > inHStart || (curH === inHStart && curM >= inMStart)) &&
-                             (curH < inHEnd || (curH === inHEnd && curM <= inMEnd));
-
-        btnCheckin.style.display = "block";
-        btnCheckout.style.display = "none";
-        togglePresenceTypeInputs();
-
-        // Absen / Izin is always allowed even outside working hours window
-        const type = document.querySelector('input[name="presence_type"]:checked')?.value || "WFO";
-        
-        if (type !== "ABSEN" && !isCheckinOpen) {
-            btnCheckin.disabled = true;
-            btnCheckin.textContent = `Check-In Ditutup (${timeConfig.inStart} - ${timeConfig.inEnd})`;
-        } else {
-            btnCheckin.disabled = false;
-            btnCheckin.textContent = type === "ABSEN" ? "Kirim Permohonan Izin / Cuti" : "Check-In Presensi";
-        }
-    }
-}
-
-// Capture Photo helper (Base64)
-function capturePhotoBase64() {
-    const video = document.getElementById("webcam-video");
-    const canvas = document.getElementById("photo-canvas");
-    
-    if (!webcamStream) return "";
-
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    
-    const ctx = canvas.getContext("2d");
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    return canvas.toDataURL("image/jpeg", 0.7);
-}
-
 // Check-In Action
 async function performCheckIn() {
     const type = document.querySelector('input[name="presence_type"]:checked').value;
@@ -545,17 +591,16 @@ async function performCheckIn() {
     const btnCheckin = document.getElementById("btn-checkin");
 
     btnCheckin.disabled = true;
-    scannerLine.style.display = "block";
-    faceOverlay.style.display = "flex";
+    if (scannerLine) scannerLine.style.display = "block";
+    if (faceOverlay) faceOverlay.style.display = "flex";
 
     setTimeout(async () => {
-        scannerLine.style.display = "none";
-        faceOverlay.style.display = "none";
+        if (scannerLine) scannerLine.style.display = "none";
+        if (faceOverlay) faceOverlay.style.display = "none";
 
         const now = new Date();
         const checkInTimeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         
-        // Late calculation (limit: 07:30)
         let status = "Tepat Waktu";
         const [targetH, targetM] = ["07", "30"].map(Number);
         if (now.getHours() > targetH || (now.getHours() === targetH && now.getMinutes() > targetM)) {
@@ -567,7 +612,7 @@ async function performCheckIn() {
             detail = `WFO - ${document.getElementById("wfo-coords").value}`;
         } else {
             const loc = document.getElementById("wfh-location").value || "Luar Kantor";
-            const task = document.getElementById("wfh-notes").value || "Kerja remote";
+            const task = document.getElementById("wfh-notes").value || "Dinas Luar";
             detail = `WFH - Lokasi: ${loc} (Tugas: ${task})`;
         }
 
@@ -654,9 +699,6 @@ async function savePresenceLog(type, checkIn, checkOut, detail, status, photoDat
             const { error } = await supabaseClient.from('attendance_logs').insert([newLog]);
             if (!error) {
                 pushSuccess = true;
-                console.log("Berhasil simpan ke Supabase");
-            } else {
-                console.error("Insert error Supabase:", error.message);
             }
         } catch (e) {
             console.error("Gagal menyimpan ke Supabase:", e);
@@ -670,7 +712,259 @@ async function savePresenceLog(type, checkIn, checkOut, detail, status, photoDat
     syncUIState();
 }
 
-// Sync UI states
+// Submit Daily Activity Journal
+async function submitDailyJournal() {
+    const date = document.getElementById("journal-date").value;
+    const activity = document.getElementById("journal-activity").value.trim();
+    const target = document.getElementById("journal-target").value.trim();
+    const realization = document.getElementById("journal-realization").value.trim();
+    const duration = parseFloat(document.getElementById("journal-duration").value);
+
+    if (!date || !activity || !target || !realization || isNaN(duration)) {
+        showToast("Harap isi semua kolom jurnal aktivitas!", "error");
+        return;
+    }
+
+    const employee = getCurrentEmployee();
+    const newJournal = {
+        id: "jr-" + Date.now(),
+        employee_id: employee.id,
+        employee_name: employee.name,
+        date: date,
+        activity: activity,
+        target: target,
+        realization: realization,
+        duration: duration,
+        status: "Pending",
+        approver_note: ""
+    };
+
+    let pushSuccess = false;
+    if (supabaseClient) {
+        try {
+            const { error } = await supabaseClient.from('daily_journals').insert([newJournal]);
+            if (!error) pushSuccess = true;
+        } catch (e) {
+            console.error("Gagal mengirim jurnal ke Supabase:", e);
+        }
+    }
+
+    dailyJournals.unshift(newJournal);
+    localStorage.setItem("apresi_journals", JSON.stringify(dailyJournals));
+
+    // Reset inputs
+    document.getElementById("journal-activity").value = "";
+    document.getElementById("journal-target").value = "";
+    document.getElementById("journal-realization").value = "";
+    document.getElementById("journal-duration").value = "";
+
+    showToast("Jurnal aktivitas berhasil dikirim! Menunggu persetujuan Carik/Lurah.", "success");
+    syncUIState();
+    renderPersonalJournals();
+}
+
+// Render Personal Journals List
+function renderPersonalJournals() {
+    const tbody = document.getElementById("personal-journal-body");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    const userJournals = dailyJournals.filter(j => j.employee_id === currentEmployeeId);
+
+    if (userJournals.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Belum ada laporan jurnal aktivitas.</td></tr>`;
+        return;
+    }
+
+    userJournals.forEach(j => {
+        let statusBadge = `<span class="badge badge-checkout">Pending</span>`;
+        if (j.status === "Disetujui") statusBadge = `<span class="badge badge-wfh">Disetujui</span>`;
+        if (j.status === "Ditolak") statusBadge = `<span class="badge badge-absen" style="background:rgba(239,68,68,0.15); color:#f87171; border-color:#f87171;">Ditolak</span>`;
+
+        const titleNote = j.approver_note ? `title="Catatan: ${j.approver_note}"` : '';
+
+        tbody.innerHTML += `
+            <tr ${titleNote}>
+                <td>${formatDateIndo(j.date)}</td>
+                <td>${j.activity}</td>
+                <td>${j.realization} / ${j.target}</td>
+                <td>${j.duration} Jam</td>
+                <td>${statusBadge}</td>
+            </tr>
+        `;
+    });
+}
+
+// Render Admin Journal Approvals Tab
+function renderAdminApprovalList() {
+    const tbody = document.getElementById("admin-approval-body");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    const pendings = dailyJournals.filter(j => j.status === "Pending");
+
+    if (pendings.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Tidak ada pengajuan jurnal pending.</td></tr>`;
+        return;
+    }
+
+    pendings.forEach(j => {
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${j.employee_name}</strong></td>
+                <td>${formatDateIndo(j.date)}</td>
+                <td>${j.activity}</td>
+                <td>${j.target}</td>
+                <td>${j.realization}</td>
+                <td>${j.duration} Jam</td>
+                <td>
+                    <div style="display:flex; gap: 5px;">
+                        <button class="btn btn-success" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="approveJournal('${j.id}')">Setujui</button>
+                        <button class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="rejectJournal('${j.id}')">Tolak</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+async function approveJournal(id) {
+    const index = dailyJournals.findIndex(j => j.id === id);
+    if (index === -1) return;
+
+    dailyJournals[index].status = "Disetujui";
+    
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('daily_journals').update({ status: "Disetujui" }).eq('id', id);
+        } catch (e) { console.error(e); }
+    }
+
+    localStorage.setItem("apresi_journals", JSON.stringify(dailyJournals));
+    showToast("Jurnal aktivitas disetujui!", "success");
+    syncUIState();
+    renderAdminApprovalList();
+}
+
+async function rejectJournal(id) {
+    const note = prompt("Masukkan alasan penolakan:");
+    const index = dailyJournals.findIndex(j => j.id === id);
+    if (index === -1) return;
+
+    dailyJournals[index].status = "Ditolak";
+    dailyJournals[index].approver_note = note || "Ditolak atasan";
+
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('daily_journals').update({ status: "Ditolak", approver_note: note || "Ditolak atasan" }).eq('id', id);
+        } catch (e) { console.error(e); }
+    }
+
+    localStorage.setItem("apresi_journals", JSON.stringify(dailyJournals));
+    showToast("Jurnal aktivitas ditolak.", "warning");
+    syncUIState();
+    renderAdminApprovalList();
+}
+
+// TPP/Tukin Calculator (Formula: Rp 1.500.000 max. Kehadiran 70%, Jurnal Kinerja 30%. Potongan keterlambatan Rp 25.000/hari)
+function renderTukinCalculation() {
+    const tbody = document.getElementById("admin-tukin-body");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    const baseTukin = 1500000;
+
+    employees.forEach(emp => {
+        const empLogs = attendanceLogs.filter(l => l.employee_id === emp.id);
+        const empJournals = dailyJournals.filter(j => j.employee_id === emp.id && j.status === "Disetujui");
+
+        const presentDays = empLogs.filter(l => l.type === "WFO" || l.type === "WFH").length;
+        const lateDays = empLogs.filter(l => l.status === "Terlambat").length;
+        const totalDuration = empJournals.reduce((sum, j) => sum + (j.duration || 0), 0);
+
+        // Attendance ratio (based on standard 22 work days/month)
+        const attendanceRate = Math.min((presentDays / 22), 1);
+        
+        // Journal score (standard target 80 hours work/month)
+        const journalRate = Math.min((totalDuration / 80), 1);
+
+        // Calculations
+        const attendanceComponent = baseTukin * 0.70 * attendanceRate;
+        const journalComponent = baseTukin * 0.30 * journalRate;
+        const lateDeduction = lateDays * 25000;
+
+        const tukinClean = Math.max(Math.round(attendanceComponent + journalComponent - lateDeduction), 0);
+
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${emp.name}</strong><br><small style="color:var(--text-secondary);">${emp.role}</small></td>
+                <td>${presentDays} Hari</td>
+                <td style="color: ${lateDays > 0 ? 'var(--danger)' : 'var(--text-secondary)'};">${lateDays} Hari</td>
+                <td>${totalDuration} Jam</td>
+                <td>${Math.round(attendanceRate * 100)}%</td>
+                <td>${Math.round(journalRate * 100)}%</td>
+                <td style="color: var(--success); font-weight:700;">Rp ${tukinClean.toLocaleString('id-ID')}</td>
+            </tr>
+        `;
+    });
+}
+
+// Export Tukin to Excel
+function exportTukinExcel() {
+    if (employees.length === 0) {
+        showToast("Tidak ada data pamong untuk diekspor!", "warning");
+        return;
+    }
+
+    try {
+        const baseTukin = 1500000;
+        const excelData = employees.map((emp, index) => {
+            const empLogs = attendanceLogs.filter(l => l.employee_id === emp.id);
+            const empJournals = dailyJournals.filter(j => j.employee_id === emp.id && j.status === "Disetujui");
+
+            const presentDays = empLogs.filter(l => l.type === "WFO" || l.type === "WFH").length;
+            const lateDays = empLogs.filter(l => l.status === "Terlambat").length;
+            const totalDuration = empJournals.reduce((sum, j) => sum + (j.duration || 0), 0);
+
+            const attendanceRate = Math.min((presentDays / 22), 1);
+            const journalRate = Math.min((totalDuration / 80), 1);
+
+            const attendanceComponent = baseTukin * 0.70 * attendanceRate;
+            const journalComponent = baseTukin * 0.30 * journalRate;
+            const lateDeduction = lateDays * 25000;
+            const tukinClean = Math.max(Math.round(attendanceComponent + journalComponent - lateDeduction), 0);
+
+            return {
+                "No": index + 1,
+                "NIK": emp.nik,
+                "Nama Pamong": emp.name,
+                "Jabatan": emp.role,
+                "Hari Hadir": presentDays,
+                "Hari Terlambat": lateDays,
+                "Total Jam Kerja Jurnal (Approved)": totalDuration,
+                "Rasio Kehadiran (%)": Math.round(attendanceRate * 100),
+                "Rasio Kinerja Jurnal (%)": Math.round(journalRate * 100),
+                "Potongan Terlambat (Rp)": lateDeduction,
+                "Rekomendasi Tukin Bersih (Rp)": tukinClean
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Perhitungan TPP Pamong");
+
+        const widths = [5, 12, 25, 20, 12, 15, 30, 20, 20, 22, 25];
+        worksheet["!cols"] = widths.map(w => ({ wch: w }));
+
+        XLSX.writeFile(workbook, `Rekap_Tukin_Pamong_Kalidengen_${new Date().toISOString().split("T")[0]}.xlsx`);
+        showToast("Laporan Excel Tukin berhasil diunduh!", "success");
+    } catch (e) {
+        console.error(e);
+        showToast("Gagal mengekspor data TPP!", "error");
+    }
+}
+
+// Sync UI States
 function syncUIState() {
     checkTodayAttendanceState();
     renderPersonalLogs();
@@ -683,6 +977,7 @@ function syncUIState() {
 // Personal Logs Render
 function renderPersonalLogs() {
     const tbody = document.getElementById("personal-history-body");
+    if (!tbody) return;
     tbody.innerHTML = "";
 
     const userLogs = attendanceLogs.filter(l => l.employee_id === currentEmployeeId);
@@ -720,13 +1015,18 @@ function updatePersonalStats() {
     const absentDays = userLogs.filter(l => l.type === "ABSEN").length;
     const totalDays = presentDays + absentDays;
     const rate = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 100;
-    document.getElementById("stat-attendance-rate").textContent = `${rate}%`;
+    
+    const rateEl = document.getElementById("stat-attendance-rate");
+    const hoursEl = document.getElementById("stat-hours");
+    const ontimeEl = document.getElementById("stat-ontime");
+
+    if (rateEl) rateEl.textContent = `${rate}%`;
 
     const totalHours = userLogs.reduce((acc, log) => acc + (log.working_hours || 0), 0);
-    document.getElementById("stat-hours").textContent = `${totalHours.toFixed(1)}h`;
+    if (hoursEl) hoursEl.textContent = `${totalHours.toFixed(1)}h`;
 
     const onTimeCount = userLogs.filter(l => l.status === "Tepat Waktu").length;
-    document.getElementById("stat-ontime").textContent = onTimeCount;
+    if (ontimeEl) ontimeEl.textContent = onTimeCount;
 }
 
 // Load Staff Profile Detail
@@ -735,7 +1035,7 @@ function loadProfileForm() {
     document.getElementById("profile-nik").value = current.nik || "BELUM DISKEMA";
     document.getElementById("profile-fullname").value = current.name;
     document.getElementById("profile-designation").value = current.role;
-    document.getElementById("profile-department").value = current.department || "IT & Engineering";
+    document.getElementById("profile-department").value = current.department || "Sekretariat";
     document.getElementById("profile-email").value = current.email || "";
 
     const preview = document.getElementById("profile-img-preview");
@@ -825,7 +1125,6 @@ function renderPublicDashboard() {
             } else if (log.type === "WFH") {
                 statusText = "Dinas Luar";
                 statusClass = "badge-wfh-glow";
-                // extract location name
                 const locMatch = log.detail.match(/Lokasi:\s*([^)]+)/);
                 const locName = locMatch ? locMatch[1] : "Dinas Luar";
                 detailHtml = `
@@ -833,10 +1132,9 @@ function renderPublicDashboard() {
                     <p style="font-size: 0.7rem; color: var(--text-secondary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${locName}">Tempat: ${locName}</p>
                 `;
             } else if (log.type === "ABSEN") {
-                // extract leave reason
                 const reasonMatch = log.detail.match(/Izin:\s*([^(]+)/);
                 const reason = reasonMatch ? reasonMatch[1].trim() : "Izin";
-                statusText = `Tidak Hadir (${reason})`;
+                statusText = `Izin (${reason})`;
                 statusClass = "badge-absen-glow";
                 detailHtml = `
                     <p style="font-size: 0.75rem; color: var(--warning); font-weight:600;">Status: Izin Kerja</p>
@@ -863,9 +1161,10 @@ function renderPublicDashboard() {
     });
 }
 
-// Admin Panel Code
+// Admin Panel logs
 function renderAdminLogs() {
     const tbody = document.getElementById("admin-logs-body");
+    if (!tbody) return;
     tbody.innerHTML = "";
 
     const query = document.getElementById("search-employee").value.toLowerCase();
@@ -914,7 +1213,12 @@ function filterAdminLogs() {
 }
 
 function updateAdminStats() {
-    document.getElementById("admin-total-emp").textContent = employees.length;
+    const totalEmpEl = document.getElementById("admin-total-emp");
+    const totalWfoEl = document.getElementById("admin-total-wfo");
+    const totalWfhEl = document.getElementById("admin-total-wfh");
+    const totalAbsentEl = document.getElementById("admin-total-absent");
+
+    if (totalEmpEl) totalEmpEl.textContent = employees.length;
 
     const today = new Date().toISOString().split("T")[0];
     const todayLogs = attendanceLogs.filter(l => l.date === today);
@@ -923,9 +1227,9 @@ function updateAdminStats() {
     const wfhCount = todayLogs.filter(l => l.type === "WFH").length;
     const absentCount = todayLogs.filter(l => l.type === "ABSEN").length;
 
-    document.getElementById("admin-total-wfo").textContent = wfoCount;
-    document.getElementById("admin-total-wfh").textContent = wfhCount;
-    document.getElementById("admin-total-absent").textContent = absentCount;
+    if (totalWfoEl) totalWfoEl.textContent = wfoCount;
+    if (totalWfhEl) totalWfhEl.textContent = wfhCount;
+    if (totalAbsentEl) totalAbsentEl.textContent = absentCount;
 }
 
 // Register New Employee
@@ -951,7 +1255,7 @@ async function registerNewEmployee() {
         name: name,
         role: role,
         department: department,
-        email: `${name.toLowerCase().replace(/\s+/g, '.')}@apresi.local`,
+        email: `${name.toLowerCase().replace(/\s+/g, '.')}@kalidengen.go.id`,
         avatar_url: ""
     };
 
@@ -975,7 +1279,7 @@ async function registerNewEmployee() {
     injectEmployeeSelector();
     updateAdminStats();
     renderPublicDashboard();
-    showToast(`Staf ${name} berhasil didaftarkan!`, "success");
+    showToast(`Pamong ${name} berhasil didaftarkan!`, "success");
 }
 
 // SheetJS Excel Export
@@ -991,13 +1295,12 @@ function exportToExcel() {
     }
 
     try {
-        // Format log data for worksheet
         const excelData = attendanceLogs.map((log, index) => {
             const emp = employees.find(e => e.id === log.employee_id);
             return {
                 "No": index + 1,
                 "NIK": emp ? emp.nik : "",
-                "Nama Aparatur": log.name,
+                "Nama Pamong": log.name,
                 "Departemen/Bidang": emp ? emp.department : "",
                 "Tanggal": formatDateIndo(log.date),
                 "Tipe Presensi": log.type,
@@ -1009,17 +1312,14 @@ function exportToExcel() {
             };
         });
 
-        // Create sheet & workbook
         const worksheet = XLSX.utils.json_to_sheet(excelData);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Kehadiran");
 
-        // Format column widths nicely
         const max_len = [5, 12, 25, 20, 15, 15, 12, 12, 12, 18, 35];
         worksheet["!cols"] = max_len.map(w => ({ wch: w }));
 
-        // Download Excel
-        XLSX.writeFile(workbook, `Laporan_Presensi_Aparat_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(workbook, `Laporan_Kehadiran_Pamong_${new Date().toISOString().split("T")[0]}.xlsx`);
         showToast("Laporan Excel berhasil diunduh!", "success");
     } catch (e) {
         console.error("Gagal mengekspor Excel:", e);
