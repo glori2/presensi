@@ -270,6 +270,7 @@ function switchAdminSubtab(tabName) {
         document.getElementById("admin-subtab-monitoring").style.display = "block";
         updateAdminStats();
         renderAdminLogs();
+        renderAdminEmployeeManageList();
     } else if (tabName === 'persetujuan') {
         document.getElementById("admin-subtab-persetujuan").style.display = "block";
         renderAdminApprovalList();
@@ -1317,6 +1318,7 @@ async function registerNewEmployee() {
     injectEmployeeSelector();
     updateAdminStats();
     renderPublicDashboard();
+    renderAdminEmployeeManageList();
     showToast(`Pamong ${name} berhasil didaftarkan!`, "success");
 }
 
@@ -1431,4 +1433,81 @@ function formatDateIndo(dateStr) {
     const options = { day: 'numeric', month: 'short', year: 'numeric' };
     const date = new Date(dateStr);
     return date.toLocaleDateString('id-ID', options);
+}
+
+// Render Employee Management List inside Panel Admin
+function renderAdminEmployeeManageList() {
+    const tbody = document.getElementById("admin-employee-manage-body");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    if (employees.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Tidak ada data pamong.</td></tr>`;
+        return;
+    }
+
+    employees.forEach(emp => {
+        const isSelf = emp.id === currentEmployeeId;
+        const deleteButton = isSelf 
+            ? `<span style="font-size:0.75rem; color:var(--text-secondary); font-style:italic;">Sedang Aktif</span>`
+            : `<button class="btn btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; background: var(--danger);" onclick="deleteEmployee('${emp.id}')">Hapus</button>`;
+
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>${emp.name}</strong></td>
+                <td>${emp.nik}</td>
+                <td>${emp.role}</td>
+                <td>${emp.department}</td>
+                <td>${deleteButton}</td>
+            </tr>
+        `;
+    });
+}
+
+// Delete Employee Action
+async function deleteEmployee(empId) {
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    if (empId === currentEmployeeId) {
+        showToast("Anda tidak bisa menghapus akun yang sedang Anda gunakan!", "error");
+        return;
+    }
+
+    const confirmDelete = confirm(`Apakah Anda yakin ingin menghapus pamong "${emp.name}"? Semua data presensi pamong ini juga akan terhapus dari sistem.`);
+    if (!confirmDelete) return;
+
+    // Delete from Supabase
+    let deleteSuccess = false;
+    if (supabaseClient) {
+        try {
+            // Delete logs first
+            await supabaseClient.from('attendance_logs').delete().eq('employee_id', empId);
+            // Delete journals
+            await supabaseClient.from('daily_journals').delete().eq('employee_id', empId);
+            // Delete employee record
+            const { error } = await supabaseClient.from('employees').delete().eq('id', empId);
+            if (!error) deleteSuccess = true;
+        } catch (e) {
+            console.error("Gagal menghapus pamong di Supabase:", e);
+        }
+    }
+
+    // Filter local memory arrays
+    employees = employees.filter(e => e.id !== empId);
+    attendanceLogs = attendanceLogs.filter(l => l.employee_id !== empId);
+    dailyJournals = dailyJournals.filter(j => j.employee_id !== empId);
+
+    // Update LocalStorage
+    localStorage.setItem("apresi_employees", JSON.stringify(employees));
+    localStorage.setItem("apresi_logs", JSON.stringify(attendanceLogs));
+    localStorage.setItem("apresi_journals", JSON.stringify(dailyJournals));
+
+    showToast(`Pamong "${emp.name}" berhasil dihapus dari sistem!`, "success");
+    
+    // Refresh Dropdowns and Lists
+    injectEmployeeSelector();
+    updateAdminStats();
+    renderPublicDashboard();
+    renderAdminEmployeeManageList();
 }
