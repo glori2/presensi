@@ -13,14 +13,16 @@ try {
 
 // System State
 let employees = [
-    { id: "emp-1", nik: "NIK202601", name: "John Doe", role: "Software Engineer", department: "IT & Engineering", email: "john.doe@apresi.local", avatar_url: "" }
+    { id: "emp-1", nik: "NIK202601", name: "John Doe", role: "Software Engineer", department: "IT & Engineering", email: "john.doe@apresi.local", avatar_url: "" },
+    { id: "emp-2", nik: "NIK202602", name: "Rian Hidayat", role: "Kepala Kantor", department: "Admin", email: "rian.h@apresi.local", avatar_url: "" },
+    { id: "emp-3", nik: "NIK202603", name: "Siti Aminah", role: "Staf Administrasi", department: "Sekretariat", email: "siti.a@apresi.local", avatar_url: "" }
 ];
 let attendanceLogs = [];
 let currentEmployeeId = "emp-1";
 let clockInterval = null;
 let webcamStream = null;
 
-// Office coordinates (User configured: -7.891848, 110.080841)
+// Office coordinates (Yogyakarta / Central Java - User configured)
 const OFFICE_LAT = -7.891848418181234;
 const OFFICE_LNG = 110.08084144673063;
 const MAX_RADIUS_METERS = 100;
@@ -33,6 +35,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     injectEmployeeSelector();
     updateUserProfileUI();
     syncUIState();
+    switchView('public'); // Default view
 });
 
 // Load data from Supabase (with LocalStorage fallback)
@@ -81,7 +84,7 @@ async function loadInitialData() {
         }
     }
 
-    // Set first employee as active if not exists
+    // Set active user
     if (!employees.some(e => e.id === currentEmployeeId)) {
         currentEmployeeId = employees[0].id;
     }
@@ -102,17 +105,38 @@ function startClock() {
     clockInterval = setInterval(update, 1000);
 }
 
+// Check if current user is admin
+function isCurrentUserAdmin() {
+    const current = getCurrentEmployee();
+    if (!current) return false;
+    const role = (current.role || "").toLowerCase();
+    const dept = (current.department || "").toLowerCase();
+    return role.includes("admin") || role.includes("kepala") || dept.includes("admin");
+}
+
 // SPA Routing
 function switchView(viewName) {
-    // Stop camera if running
     stopCameraStream();
+
+    // Access control: if switching to admin but not admin, block
+    if (viewName === 'admin' && !isCurrentUserAdmin()) {
+        showToast("Akses ditolak! Menu Admin hanya untuk Kepala Kantor / Admin.", "error");
+        switchView('public');
+        return;
+    }
 
     document.querySelectorAll(".view-panel").forEach(panel => panel.classList.remove("active"));
     document.querySelectorAll(".sidebar .nav-item").forEach(item => item.classList.remove("active"));
 
     const employee = getCurrentEmployee();
 
-    if (viewName === "employee") {
+    if (viewName === "public") {
+        document.getElementById("view-public").classList.add("active");
+        document.getElementById("nav-public").classList.add("active");
+        document.getElementById("welcome-message").textContent = "Dashboard Kehadiran Aparat";
+        document.getElementById("welcome-subtext").textContent = "Monitor status kehadiran seluruh aparatur hari ini.";
+        renderPublicDashboard();
+    } else if (viewName === "employee") {
         document.getElementById("view-employee").classList.add("active");
         document.getElementById("nav-employee").classList.add("active");
         document.getElementById("welcome-message").textContent = `Selamat Datang, ${employee.name}!`;
@@ -153,6 +177,18 @@ function updateUserProfileUI() {
     } else {
         avatarEl.textContent = initials;
     }
+
+    // Sidebar Admin Access Control: Show/Hide based on role
+    const adminNav = document.getElementById("nav-admin");
+    if (isCurrentUserAdmin()) {
+        adminNav.style.display = "block";
+    } else {
+        adminNav.style.display = "none";
+        // If current view was admin, redirect back
+        if (document.getElementById("view-admin").classList.contains("active")) {
+            switchView('public');
+        }
+    }
 }
 
 function injectEmployeeSelector() {
@@ -189,6 +225,7 @@ async function changeActiveUser(id) {
     getCurrentGPS();
     renderPersonalLogs();
     updatePersonalStats();
+    renderPublicDashboard();
     showToast(`Beralih ke karyawan: ${getCurrentEmployee().name}`, "success");
 }
 
@@ -235,7 +272,6 @@ function getCurrentGPS() {
             
             coordsInput.value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
-            // Distance to office calculation
             const distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
             latestDistance = distance;
             
@@ -249,7 +285,7 @@ function getCurrentGPS() {
         },
         (error) => {
             console.error("GPS Error:", error);
-            coordsInput.value = "-6.175392, 106.827153 (Default Monas - Izin GPS Ditolak)";
+            coordsInput.value = "-7.891848, 110.080841 (Default Lokasi Kantor - Izin GPS Ditolak)";
             distanceHint.textContent = "Gagal memindai lokasi. Memakai koordinat default.";
             distanceHint.style.color = 'var(--warning)';
         },
@@ -257,9 +293,8 @@ function getCurrentGPS() {
     );
 }
 
-// Haversine Formula for Distance Calculation (meters)
 function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Earth radius in meters
+    const R = 6371e3;
     const phi1 = lat1 * Math.PI / 180;
     const phi2 = lat2 * Math.PI / 180;
     const deltaPhi = (lat2 - lat1) * Math.PI / 180;
@@ -324,13 +359,15 @@ function stopCameraStream() {
         webcamStream = null;
     }
 
-    video.srcObject = null;
-    video.style.display = "none";
-    placeholderImg.style.display = "block";
-    photoPreview.style.display = "none";
+    if (video) {
+        video.srcObject = null;
+        video.style.display = "none";
+    }
+    if (placeholderImg) placeholderImg.style.display = "block";
+    if (photoPreview) photoPreview.style.display = "none";
 
-    statusDot.className = "status-dot";
-    statusLabel.textContent = "Kamera Tidak Aktif";
+    if (statusDot) statusDot.className = "status-dot";
+    if (statusLabel) statusLabel.textContent = "Kamera Tidak Aktif";
     if (toggleBtn) {
         toggleBtn.textContent = "Aktifkan Kamera";
         toggleBtn.className = "btn btn-primary";
@@ -340,13 +377,52 @@ function stopCameraStream() {
     }
 }
 
-// Check Presence State
+// Work Schedule Constraints (Luar Ramadan)
+// Senin - Kamis: 07:30 s.d 15:45 (Jendela masuk: 06:30 - 08:30) (Jendela pulang: 14:45 - 16:45)
+// Jumat: 07:30 s.d 15:30 (Jendela masuk: 06:30 - 08:30) (Jendela pulang: 14:30 - 16:30)
+function getPresenceTimeConfig() {
+    const now = new Date();
+    const day = now.getDay(); // 0: Minggu, 1: Senin, ..., 5: Jumat, 6: Sabtu
+    
+    // Default schedule setup
+    let config = {
+        isWorkday: true,
+        startTime: "07:30",
+        endTime: "15:45",
+        inStart: "06:30",
+        inEnd: "08:30",
+        outStart: "14:45",
+        outEnd: "16:45"
+    };
+
+    if (day === 0 || day === 6) {
+        config.isWorkday = false;
+    } else if (day === 5) { // Jumat
+        config.endTime = "15:30";
+        config.outStart = "14:30";
+        config.outEnd = "16:30";
+    }
+
+    return config;
+}
+
+// Check Work Hours Windows
 function checkTodayAttendanceState() {
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
     const logToday = attendanceLogs.find(l => l.employee_id === currentEmployeeId && l.date === today);
 
     const btnCheckin = document.getElementById("btn-checkin");
     const btnCheckout = document.getElementById("btn-checkout");
+    const timeConfig = getPresenceTimeConfig();
+
+    if (!timeConfig.isWorkday) {
+        btnCheckin.style.display = "block";
+        btnCheckin.disabled = true;
+        btnCheckin.textContent = "Hari Ini Libur Akhir Pekan";
+        btnCheckout.style.display = "none";
+        return;
+    }
 
     if (logToday) {
         if (logToday.type === "ABSEN") {
@@ -360,14 +436,50 @@ function checkTodayAttendanceState() {
             btnCheckin.textContent = "Selesai Kerja Hari Ini";
             btnCheckout.style.display = "none";
         } else {
+            // Check-out button window validation
+            const [outHStart, outMStart] = timeConfig.outStart.split(":").map(Number);
+            const [outHEnd, outMEnd] = timeConfig.outEnd.split(":").map(Number);
+            const curH = now.getHours();
+            const curM = now.getMinutes();
+
+            const isCheckoutOpen = (curH > outHStart || (curH === outHStart && curM >= outMStart)) &&
+                                  (curH < outHEnd || (curH === outHEnd && curM <= outMEnd));
+
             btnCheckin.style.display = "none";
             btnCheckout.style.display = "block";
+
+            if (!isCheckoutOpen) {
+                btnCheckout.disabled = true;
+                btnCheckout.textContent = `Check-Out Belum/Selesai Dibuka (${timeConfig.outStart} - ${timeConfig.outEnd})`;
+            } else {
+                btnCheckout.disabled = false;
+                btnCheckout.textContent = "Check-Out Presensi";
+            }
         }
     } else {
+        // Check-in button window validation
+        const [inHStart, inMStart] = timeConfig.inStart.split(":").map(Number);
+        const [inHEnd, inMEnd] = timeConfig.inEnd.split(":").map(Number);
+        const curH = now.getHours();
+        const curM = now.getMinutes();
+
+        const isCheckinOpen = (curH > inHStart || (curH === inHStart && curM >= inMStart)) &&
+                             (curH < inHEnd || (curH === inHEnd && curM <= inMEnd));
+
         btnCheckin.style.display = "block";
-        btnCheckin.disabled = false;
         btnCheckout.style.display = "none";
         togglePresenceTypeInputs();
+
+        // Absen / Izin is always allowed even outside working hours window
+        const type = document.querySelector('input[name="presence_type"]:checked')?.value || "WFO";
+        
+        if (type !== "ABSEN" && !isCheckinOpen) {
+            btnCheckin.disabled = true;
+            btnCheckin.textContent = `Check-In Ditutup (${timeConfig.inStart} - ${timeConfig.inEnd})`;
+        } else {
+            btnCheckin.disabled = false;
+            btnCheckin.textContent = type === "ABSEN" ? "Kirim Permohonan Izin / Cuti" : "Check-In Presensi";
+        }
     }
 }
 
@@ -382,7 +494,6 @@ function capturePhotoBase64() {
     canvas.height = video.videoHeight || 480;
     
     const ctx = canvas.getContext("2d");
-    // Flip horizontal to match mirrored video stream preview
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -400,8 +511,6 @@ async function performCheckIn() {
         showToast("Anda sudah check-in hari ini!", "warning");
         return;
     }
-
-    const employee = getCurrentEmployee();
 
     if (type === "WFO") {
         if (latestDistance === null) {
@@ -425,7 +534,6 @@ async function performCheckIn() {
     let photoData = "";
     if (webcamStream) {
         photoData = capturePhotoBase64();
-        // Show snapshot visual
         const photoPreview = document.getElementById("photo-preview");
         photoPreview.src = photoData;
         photoPreview.style.display = "block";
@@ -447,9 +555,10 @@ async function performCheckIn() {
         const now = new Date();
         const checkInTimeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         
-        // Late calculation (limit: 08:30)
+        // Late calculation (limit: 07:30)
         let status = "Tepat Waktu";
-        if (now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 30)) {
+        const [targetH, targetM] = ["07", "30"].map(Number);
+        if (now.getHours() > targetH || (now.getHours() === targetH && now.getMinutes() > targetM)) {
             status = "Terlambat";
         }
 
@@ -568,6 +677,7 @@ function syncUIState() {
     updatePersonalStats();
     renderAdminLogs();
     updateAdminStats();
+    renderPublicDashboard();
 }
 
 // Personal Logs Render
@@ -643,7 +753,7 @@ function handlePhotoUpload(event) {
     reader.readAsDataURL(file);
 }
 
-// Save Staff Profile (Updates both local & Supabase if connected)
+// Save Staff Profile
 async function saveStaffProfile() {
     const current = getCurrentEmployee();
     
@@ -684,6 +794,73 @@ async function saveStaffProfile() {
     showToast("Profil berhasil diperbarui!", "success");
     updateUserProfileUI();
     injectEmployeeSelector();
+    renderPublicDashboard();
+}
+
+// Render Public Board Status Kehadiran Aparat
+function renderPublicDashboard() {
+    const grid = document.getElementById("public-aparat-grid");
+    if (!grid) return;
+
+    grid.innerHTML = "";
+
+    const today = new Date().toISOString().split("T")[0];
+    const todayLogs = attendanceLogs.filter(l => l.date === today);
+
+    employees.forEach(emp => {
+        const log = todayLogs.find(l => l.employee_id === emp.id);
+
+        let statusText = "Belum Hadir";
+        let statusClass = "badge-belum-glow";
+        let detailHtml = `<p style="font-size: 0.75rem; color: var(--text-secondary);">Masuk: -</p>`;
+
+        if (log) {
+            if (log.type === "WFO") {
+                statusText = "Di Kantor";
+                statusClass = "badge-wfo-glow";
+                detailHtml = `
+                    <p style="font-size: 0.75rem; color: var(--success); font-weight:600;">Masuk: ${log.check_in_time}</p>
+                    <p style="font-size: 0.7rem; color: var(--text-secondary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">Status: ${log.status}</p>
+                `;
+            } else if (log.type === "WFH") {
+                statusText = "Dinas Luar";
+                statusClass = "badge-wfh-glow";
+                // extract location name
+                const locMatch = log.detail.match(/Lokasi:\s*([^)]+)/);
+                const locName = locMatch ? locMatch[1] : "Dinas Luar";
+                detailHtml = `
+                    <p style="font-size: 0.75rem; color: #818cf8; font-weight:600;">Masuk: ${log.check_in_time}</p>
+                    <p style="font-size: 0.7rem; color: var(--text-secondary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${locName}">Tempat: ${locName}</p>
+                `;
+            } else if (log.type === "ABSEN") {
+                // extract leave reason
+                const reasonMatch = log.detail.match(/Izin:\s*([^(]+)/);
+                const reason = reasonMatch ? reasonMatch[1].trim() : "Izin";
+                statusText = `Tidak Hadir (${reason})`;
+                statusClass = "badge-absen-glow";
+                detailHtml = `
+                    <p style="font-size: 0.75rem; color: var(--warning); font-weight:600;">Status: Izin Kerja</p>
+                    <p style="font-size: 0.7rem; color: var(--text-secondary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">Detail: ${reason}</p>
+                `;
+            }
+        }
+
+        const avatarSrc = emp.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=60";
+        
+        grid.innerHTML += `
+            <div class="aparat-card">
+                <img src="${avatarSrc}" class="aparat-avatar" alt="${emp.name}">
+                <div class="aparat-info">
+                    <h3 class="aparat-name" title="${emp.name}">${emp.name}</h3>
+                    <p class="aparat-role-text" title="${emp.role}">${emp.role} (${emp.department})</p>
+                    <div style="margin-bottom: 5px;">
+                        <span class="badge ${statusClass}" style="font-size:0.7rem; padding:0.15rem 0.5rem;">${statusText}</span>
+                    </div>
+                    ${detailHtml}
+                </div>
+            </div>
+        `;
+    });
 }
 
 // Admin Panel Code
@@ -714,7 +891,6 @@ function renderAdminLogs() {
         if (log.status === "Terlambat") statusClass = "stat-footer down";
         if (log.status === "Izin") statusClass = "stat-footer";
 
-        // Load avatar photo if checked in
         const emp = employees.find(e => e.id === log.employee_id);
         const avatarSrc = log.photo_data || (emp ? emp.avatar_url : "") || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=50";
 
@@ -798,11 +974,66 @@ async function registerNewEmployee() {
 
     injectEmployeeSelector();
     updateAdminStats();
+    renderPublicDashboard();
     showToast(`Staf ${name} berhasil didaftarkan!`, "success");
 }
 
-// Export CSV
+// SheetJS Excel Export
+function exportToExcel() {
+    if (!isCurrentUserAdmin()) {
+        showToast("Akses ditolak! Fitur hanya untuk Admin.", "error");
+        return;
+    }
+
+    if (attendanceLogs.length === 0) {
+        showToast("Belum ada log presensi untuk diekspor!", "warning");
+        return;
+    }
+
+    try {
+        // Format log data for worksheet
+        const excelData = attendanceLogs.map((log, index) => {
+            const emp = employees.find(e => e.id === log.employee_id);
+            return {
+                "No": index + 1,
+                "NIK": emp ? emp.nik : "",
+                "Nama Aparatur": log.name,
+                "Departemen/Bidang": emp ? emp.department : "",
+                "Tanggal": formatDateIndo(log.date),
+                "Tipe Presensi": log.type,
+                "Jam Masuk": log.check_in_time || "",
+                "Jam Keluar": log.check_out_time || "",
+                "Status": log.status,
+                "Durasi Kerja (Jam)": log.working_hours || 0,
+                "Keterangan/Detail": log.detail
+            };
+        });
+
+        // Create sheet & workbook
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Kehadiran");
+
+        // Format column widths nicely
+        const max_len = [5, 12, 25, 20, 15, 15, 12, 12, 12, 18, 35];
+        worksheet["!cols"] = max_len.map(w => ({ wch: w }));
+
+        // Download Excel
+        XLSX.writeFile(workbook, `Laporan_Presensi_Aparat_${new Date().toISOString().split("T")[0]}.xlsx`);
+        showToast("Laporan Excel berhasil diunduh!", "success");
+    } catch (e) {
+        console.error("Gagal mengekspor Excel:", e);
+        showToast("Gagal mengekspor file Excel!", "error");
+    }
+}
+
+// CSV Export
 function exportToCSV() {
+    if (!isCurrentUserAdmin()) {
+        showToast("Akses ditolak! Fitur hanya untuk Admin.", "error");
+        return;
+    }
+
     if (attendanceLogs.length === 0) {
         showToast("Belum ada log presensi untuk diekspor!", "warning");
         return;
