@@ -174,10 +174,20 @@ function isCurrentUserAdmin() {
 function switchView(viewName) {
     stopCameraStream();
 
-    if (viewName === 'admin' && !isCurrentUserAdmin()) {
-        showToast("Akses ditolak! Menu Admin hanya untuk Kepala Kantor / Admin.", "error");
-        switchView('public');
-        return;
+    if (viewName === 'admin') {
+        if (!isCurrentUserAdmin()) {
+            showToast("Akses ditolak! Menu Admin hanya untuk Kepala Kantor / Admin.", "error");
+            switchView('public');
+            return;
+        }
+        
+        // Check PIN protection
+        if (sessionStorage.getItem("apresi_admin_unlocked") !== "true") {
+            document.getElementById("admin-password-modal").style.display = "flex";
+            document.getElementById("admin-pin-input").value = "";
+            document.getElementById("admin-pin-input").focus();
+            return;
+        }
     }
 
     document.querySelectorAll(".view-panel").forEach(panel => panel.classList.remove("active"));
@@ -214,6 +224,26 @@ function switchView(viewName) {
         // Reset subtab selectors
         document.querySelector('input[name="admin_subtab"][value="monitoring"]').checked = true;
     }
+}
+
+// Admin PIN Verification
+function verifyAdminPIN() {
+    const pin = document.getElementById("admin-pin-input").value;
+    if (pin === "admin123") {
+        sessionStorage.setItem("apresi_admin_unlocked", "true");
+        document.getElementById("admin-password-modal").style.display = "none";
+        showToast("PIN Berhasil Diverifikasi! Akses Panel Admin dibuka.", "success");
+        switchView("admin");
+    } else {
+        showToast("PIN Admin salah!", "error");
+        document.getElementById("admin-pin-input").value = "";
+        document.getElementById("admin-pin-input").focus();
+    }
+}
+
+function closeAdminPINModal() {
+    document.getElementById("admin-password-modal").style.display = "none";
+    switchView("public");
 }
 
 // Switch Employee sub-tabs
@@ -311,6 +341,7 @@ function injectEmployeeSelector() {
 
 async function changeActiveUser(id) {
     currentEmployeeId = id;
+    sessionStorage.removeItem("apresi_admin_unlocked");
     updateUserProfileUI();
     syncUIState();
     showToast(`Beralih ke karyawan: ${getCurrentEmployee().name}`, "success");
