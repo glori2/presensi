@@ -1171,7 +1171,7 @@ function renderPublicDashboard() {
         const avatarSrc = emp.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=60";
         
         grid.innerHTML += `
-            <div class="aparat-card">
+            <div class="aparat-card" onclick="selectActiveUserAndRedirect('${emp.id}')">
                 <img src="${avatarSrc}" class="aparat-avatar" alt="${emp.name}">
                 <div class="aparat-info">
                     <h3 class="aparat-name" title="${emp.name}">${emp.name}</h3>
@@ -1566,4 +1566,10 @@ function editEmployeeInline(empId) {
     document.getElementById("new-emp-nik").focus();
 
     showToast(`Mode edit diaktifkan untuk: ${emp.name}`, "info");
+}
+
+// Click on Public Board employee card to select user and redirect to employee area
+async function selectActiveUserAndRedirect(empId) {
+    await changeActiveUser(empId);
+    switchView('employee');
 }
