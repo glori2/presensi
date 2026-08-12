@@ -358,7 +358,8 @@ function injectEmployeeSelector() {
 
     let optionsHtml = "";
     employees.forEach(emp => {
-        optionsHtml += `<option value="${emp.id}" ${emp.id === currentEmployeeId ? 'selected' : ''}>${emp.name} (${emp.role})</option>`;
+        const extra = parseEmployeeExtra(emp);
+        optionsHtml += `<option value="${emp.id}" ${emp.id === currentEmployeeId ? 'selected' : ''}>${emp.name} (${extra.role})</option>`;
     });
 
     selector.innerHTML = optionsHtml;
@@ -974,9 +975,10 @@ function renderTukinCalculation() {
 
         const tukinClean = Math.max(Math.round(attendanceComponent + journalComponent - lateDeduction), 0);
 
+        const extra = parseEmployeeExtra(emp);
         tbody.innerHTML += `
             <tr>
-                <td><strong>${emp.name}</strong><br><small style="color:var(--text-secondary);">${emp.role}</small></td>
+                <td><strong>${emp.name}</strong><br><small style="color:var(--text-secondary);">${extra.role}</small></td>
                 <td>${presentDays} Hari</td>
                 <td style="color: ${lateDays > 0 ? 'var(--danger)' : 'var(--text-secondary)'};">${lateDays} Hari</td>
                 <td>${totalDuration} Jam</td>
@@ -1013,11 +1015,12 @@ function exportTukinExcel() {
             const lateDeduction = lateDays * 25000;
             const tukinClean = Math.max(Math.round(attendanceComponent + journalComponent - lateDeduction), 0);
 
+            const extra = parseEmployeeExtra(emp);
             return {
                 "No": index + 1,
                 "NIK": emp.nik,
                 "Nama Pamong": emp.name,
-                "Jabatan": emp.role,
+                "Jabatan": extra.role,
                 "Hari Hadir": presentDays,
                 "Hari Terlambat": lateDays,
                 "Total Jam Kerja Jurnal (Approved)": totalDuration,
@@ -1553,6 +1556,7 @@ function renderAdminEmployeeManageList() {
     }
 
     employees.forEach(emp => {
+        const extra = parseEmployeeExtra(emp);
         const isSelf = emp.id === currentEmployeeId;
         const deleteButton = isSelf 
             ? `<span style="font-size:0.75rem; color:var(--text-secondary); font-style:italic;">Sedang Aktif</span>`
@@ -1563,7 +1567,7 @@ function renderAdminEmployeeManageList() {
             <tr>
                 <td><strong>${emp.name}</strong></td>
                 <td>${emp.nik}</td>
-                <td>${emp.role}</td>
+                <td>${extra.role}</td>
                 <td>${emp.department}</td>
                 <td>
                     ${editButton}
@@ -1635,12 +1639,16 @@ function editEmployeeInline(empId) {
     if (!emp) return;
 
     editingEmployeeId = empId;
+    const extra = parseEmployeeExtra(emp);
 
     // Fill form
     document.getElementById("new-emp-nik").value = emp.nik;
     document.getElementById("new-emp-name").value = emp.name;
-    document.getElementById("new-emp-role").value = emp.role;
+    document.getElementById("new-emp-role").value = extra.role;
     document.getElementById("new-emp-dept").value = emp.department;
+    document.getElementById("new-emp-gender").value = extra.gender;
+    document.getElementById("new-emp-phone").value = extra.phone;
+    document.getElementById("new-emp-address").value = extra.address;
 
     // Change Form Visual Mode to Edit
     document.getElementById("new-employee-form-title").textContent = "Ubah Data Pamong: " + emp.name;
