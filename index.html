@@ -369,6 +369,14 @@
                                 <label for="profile-email">Email Kantor</label>
                                 <input type="email" class="form-input" id="profile-email" placeholder="email@kalidengen.go.id">
                             </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label for="profile-privilege">Hak Akses Sistem</label>
+                                <select class="form-input" id="profile-privilege" disabled style="background: rgba(255,255,255,0.02); opacity: 0.7; cursor: not-allowed;">
+                                    <option value="user">User Biasa (Pamong)</option>
+                                    <option value="admin">Administrator (Lurah/Carik)</option>
+                                </select>
+                                <small style="color: var(--text-secondary); font-size: 0.7rem; margin-top: 3px;">* Hak akses hanya dapat diubah oleh Administrator di Panel Admin.</small>
+                            </div>
                             <div style="grid-column: span 2; margin-top: 1rem;">
                                 <button class="btn btn-success" onclick="saveStaffProfile()">Simpan Perubahan Profil</button>
                             </div>
@@ -500,6 +508,13 @@
                                 <div class="form-group" style="grid-column: span 2;">
                                     <label for="new-emp-address">Alamat Rumah</label>
                                     <input type="text" class="form-input" id="new-emp-address" placeholder="Contoh: RT 03 / RW 01, Kalidengen">
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-emp-privilege">Hak Akses Sistem</label>
+                                    <select class="form-input" id="new-emp-privilege">
+                                        <option value="user">User Biasa (Pamong)</option>
+                                        <option value="admin">Administrator (Lurah/Carik)</option>
+                                    </select>
                                 </div>
                                 <button class="btn btn-primary" id="new-employee-submit-btn" onclick="registerNewEmployee()">Tambah Karyawan</button>
                             </div>

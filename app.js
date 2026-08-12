@@ -166,7 +166,10 @@ function isCurrentUserAdmin() {
         return true;
     }
     
-    const role = (current.role || "").toLowerCase();
+    const extra = parseEmployeeExtra(current);
+    if (extra.privilege === "admin") return true;
+    
+    const role = (extra.role || "").toLowerCase();
     const dept = (current.department || "").toLowerCase();
     return role.includes("admin") || role.includes("kepala") || dept.includes("admin");
 }
@@ -321,7 +324,8 @@ function parseEmployeeExtra(emp) {
         role: emp.role || "",
         gender: "Laki-laki",
         phone: "-",
-        address: "-"
+        address: "-",
+        privilege: "user"
     };
     if (emp.role && emp.role.includes(" || ")) {
         const parts = emp.role.split(" || ");
@@ -329,12 +333,23 @@ function parseEmployeeExtra(emp) {
         data.gender = parts[1] ? parts[1].trim() : "Laki-laki";
         data.phone = parts[2] ? parts[2].trim() : "-";
         data.address = parts[3] ? parts[3].trim() : "-";
+        data.privilege = parts[4] ? parts[4].trim() : "user";
+    }
+    
+    // Safety Rule: Muh Masruri Mustofa is always an administrator
+    if (emp.nik === "3401010808880002" || (emp.name && emp.name.toLowerCase().includes("masruri"))) {
+        data.privilege = "admin";
     }
     return data;
 }
 
-function packEmployeeExtra(role, gender, phone, address) {
-    return `${role} || ${gender} || ${phone} || ${address}`;
+function packEmployeeExtra(role, gender, phone, address, privilege = "user") {
+    // Safety Rule: Muh Masruri Mustofa cannot be demoted
+    let finalPrivilege = privilege;
+    if (role.toLowerCase().includes("masruri")) {
+        finalPrivilege = "admin";
+    }
+    return `${role} || ${gender} || ${phone} || ${address} || ${finalPrivilege}`;
 }
 
 // Attachment File Upload Helper
@@ -1122,6 +1137,7 @@ function loadProfileForm() {
     document.getElementById("profile-gender").value = extra.gender;
     document.getElementById("profile-phone").value = extra.phone;
     document.getElementById("profile-address").value = extra.address;
+    document.getElementById("profile-privilege").value = extra.privilege;
     document.getElementById("profile-email").value = current.email || "";
 
     const preview = document.getElementById("profile-img-preview");
@@ -1149,6 +1165,7 @@ async function saveStaffProfile() {
     const updatedGender = document.getElementById("profile-gender").value;
     const updatedPhone = document.getElementById("profile-phone").value.trim() || "-";
     const updatedAddress = document.getElementById("profile-address").value.trim() || "-";
+    const updatedPrivilege = document.getElementById("profile-privilege").value || "user";
     const updatedEmail = document.getElementById("profile-email").value.trim();
     const updatedAvatar = document.getElementById("profile-img-preview").src;
 
@@ -1157,7 +1174,7 @@ async function saveStaffProfile() {
         return;
     }
 
-    const packedRole = packEmployeeExtra(updatedRole, updatedGender, updatedPhone, updatedAddress);
+    const packedRole = packEmployeeExtra(updatedRole, updatedGender, updatedPhone, updatedAddress, updatedPrivilege);
 
     const updated = {
         ...current,
@@ -1340,6 +1357,7 @@ async function registerNewEmployee() {
     const genderInput = document.getElementById("new-emp-gender");
     const phoneInput = document.getElementById("new-emp-phone");
     const addressInput = document.getElementById("new-emp-address");
+    const privilegeInput = document.getElementById("new-emp-privilege");
 
     const nik = nikInput.value.trim();
     const name = nameInput.value.trim();
@@ -1348,13 +1366,19 @@ async function registerNewEmployee() {
     const gender = genderInput.value;
     const phone = phoneInput.value.trim() || "-";
     const address = addressInput.value.trim() || "-";
+    let privilege = privilegeInput.value;
+
+    // Strict Rule: Muh Masruri Mustofa must always be admin
+    if (nik === "3401010808880002" || name.toLowerCase().includes("masruri")) {
+        privilege = "admin";
+    }
 
     if (!nik || !name || !role) {
         showToast("Harap lengkapi semua kolom!", "error");
         return;
     }
 
-    const packedRole = packEmployeeExtra(role, gender, phone, address);
+    const packedRole = packEmployeeExtra(role, gender, phone, address, privilege);
 
     if (editingEmployeeId !== null) {
         // Edit Mode
@@ -1424,6 +1448,8 @@ async function registerNewEmployee() {
     phoneInput.value = "";
     addressInput.value = "";
     genderInput.selectedIndex = 0;
+    privilegeInput.value = "user";
+    privilegeInput.disabled = false;
 
     injectEmployeeSelector();
     updateAdminStats();
@@ -1649,6 +1675,16 @@ function editEmployeeInline(empId) {
     document.getElementById("new-emp-gender").value = extra.gender;
     document.getElementById("new-emp-phone").value = extra.phone;
     document.getElementById("new-emp-address").value = extra.address;
+    
+    const privilegeInput = document.getElementById("new-emp-privilege");
+    privilegeInput.value = extra.privilege;
+    
+    // Strict Safety Rule: Do not allow demoting Muh Masruri Mustofa to ensure there is always 1 Admin.
+    if (emp.nik === "3401010808880002" || emp.name.toLowerCase().includes("masruri")) {
+        privilegeInput.disabled = true;
+    } else {
+        privilegeInput.disabled = false;
+    }
 
     // Change Form Visual Mode to Edit
     document.getElementById("new-employee-form-title").textContent = "Ubah Data Pamong: " + emp.name;
