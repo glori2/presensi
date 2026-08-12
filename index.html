@@ -164,6 +164,10 @@
                                         
                                         <label style="margin-top: 10px;" for="wfh-notes">Catatan Tugas / Rencana Aktivitas</label>
                                         <input type="text" class="form-input" id="wfh-notes" placeholder="Contoh: Rapat koordinasi pamong, survei lapangan">
+
+                                        <label style="margin-top: 10px;" for="wfh-file">Upload Surat Tugas / Lampiran (PDF/Gambar)</label>
+                                        <input type="file" class="form-input" id="wfh-file" accept="image/*,application/pdf" onchange="handleAttachmentUpload(event, 'wfh')">
+                                        <input type="hidden" id="wfh-attachment-data">
                                     </div>
 
                                     <!-- Absen -->
@@ -177,6 +181,10 @@
                                         
                                         <label style="margin-top: 10px;" for="absen-notes">Keterangan Tambahan</label>
                                         <input type="text" class="form-input" id="absen-notes" placeholder="Contoh: Demam tinggi, mengantar anak imunisasi">
+
+                                        <label style="margin-top: 10px;" for="absen-file">Upload Surat Sakit / Surat Izin (PDF/Gambar)</label>
+                                        <input type="file" class="form-input" id="absen-file" accept="image/*,application/pdf" onchange="handleAttachmentUpload(event, 'absen')">
+                                        <input type="hidden" id="absen-attachment-data">
                                     </div>
                                 </div>
 
@@ -332,14 +340,30 @@
                             <div class="form-group">
                                 <label for="profile-department">Unit / Bidang Kerja</label>
                                 <select class="form-input" id="profile-department">
-                                    <option value="IT & Engineering">IT & Engineering</option>
-                                    <option value="HR & Operations">HR & Operations</option>
-                                    <option value="Sekretariat">Sekretariat (Carik/Staf)</option>
-                                    <option value="Pemerintahan">Pemerintahan (Jagabaya/Staf)</option>
-                                    <option value="Kemakmuran">Kemakmuran (Ulu-Ulu/Staf)</option>
-                                    <option value="Keuangan">Keuangan (Danarta/Staf)</option>
+                                    <option value="Sekretariat">Sekretariat (Carik)</option>
+                                    <option value="Pemerintahan">Pemerintahan (Jagabaya)</option>
+                                    <option value="Kemakmuran">Kemakmuran (Ulu-Ulu)</option>
+                                    <option value="Keuangan">Keuangan (Danarta)</option>
                                     <option value="Keamanan">Keamanan / Jagabaya</option>
+                                    <option value="Kewilayahan (Dukuh)">Kewilayahan (Dukuh)</option>
+                                    <option value="Staf Pelaksana">Staf Pelaksana</option>
+                                    <option value="Admin">Admin / Lurah</option>
                                 </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-gender">Jenis Kelamin</label>
+                                <select class="form-input" id="profile-gender">
+                                    <option value="Laki-laki">Laki-laki</option>
+                                    <option value="Perempuan">Perempuan</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="profile-phone">Nomor HP / WhatsApp</label>
+                                <input type="text" class="form-input" id="profile-phone">
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label for="profile-address">Alamat Rumah</label>
+                                <input type="text" class="form-input" id="profile-address">
                             </div>
                             <div class="form-group" style="grid-column: span 2;">
                                 <label for="profile-email">Email Kantor</label>
@@ -457,8 +481,25 @@
                                         <option value="Kemakmuran">Kemakmuran (Ulu-Ulu)</option>
                                         <option value="Keuangan">Keuangan (Danarta)</option>
                                         <option value="Keamanan">Keamanan / Jagabaya</option>
+                                        <option value="Kewilayahan (Dukuh)">Kewilayahan (Dukuh)</option>
+                                        <option value="Staf Pelaksana">Staf Pelaksana</option>
                                         <option value="Admin">Admin / Lurah</option>
                                     </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-emp-gender">Jenis Kelamin</label>
+                                    <select class="form-input" id="new-emp-gender">
+                                        <option value="Laki-laki">Laki-laki</option>
+                                        <option value="Perempuan">Perempuan</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-emp-phone">Nomor HP / WhatsApp</label>
+                                    <input type="text" class="form-input" id="new-emp-phone" placeholder="Contoh: 081234567890">
+                                </div>
+                                <div class="form-group" style="grid-column: span 2;">
+                                    <label for="new-emp-address">Alamat Rumah</label>
+                                    <input type="text" class="form-input" id="new-emp-address" placeholder="Contoh: RT 03 / RW 01, Kalidengen">
                                 </div>
                                 <button class="btn btn-primary" id="new-employee-submit-btn" onclick="registerNewEmployee()">Tambah Karyawan</button>
                             </div>

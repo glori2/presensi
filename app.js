@@ -291,8 +291,9 @@ function getCurrentEmployee() {
 
 function updateUserProfileUI() {
     const current = getCurrentEmployee();
+    const extra = parseEmployeeExtra(current);
     document.getElementById("profile-name").textContent = current.name;
-    document.getElementById("profile-role").textContent = current.role;
+    document.getElementById("profile-role").textContent = extra.role;
 
     const initials = current.name.split(" ").map(n => n[0]).slice(0,2).join("").toUpperCase();
     const avatarEl = document.getElementById("avatar-initial");
@@ -312,6 +313,43 @@ function updateUserProfileUI() {
             switchView('public');
         }
     }
+}
+
+// User Extra Info Pack/Unpack Helpers
+function parseEmployeeExtra(emp) {
+    const data = {
+        role: emp.role || "",
+        gender: "Laki-laki",
+        phone: "-",
+        address: "-"
+    };
+    if (emp.role && emp.role.includes(" || ")) {
+        const parts = emp.role.split(" || ");
+        data.role = parts[0].trim();
+        data.gender = parts[1] ? parts[1].trim() : "Laki-laki";
+        data.phone = parts[2] ? parts[2].trim() : "-";
+        data.address = parts[3] ? parts[3].trim() : "-";
+    }
+    return data;
+}
+
+function packEmployeeExtra(role, gender, phone, address) {
+    return `${role} || ${gender} || ${phone} || ${address}`;
+}
+
+// Attachment File Upload Helper
+let currentAttachmentData = null;
+function handleAttachmentUpload(event, type) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        currentAttachmentData = e.target.result; // Base64 data url
+        document.getElementById(`${type}-attachment-data`).value = e.target.result;
+        showToast("File lampiran berhasil diunggah!", "success");
+    };
+    reader.readAsDataURL(file);
 }
 
 function injectEmployeeSelector() {
@@ -597,7 +635,13 @@ async function performCheckIn() {
     if (type === "ABSEN") {
         const reason = document.getElementById("absen-reason").value;
         const notes = document.getElementById("absen-notes").value || "Tanpa Keterangan";
-        await savePresenceLog(type, "00:00", null, `Izin: ${reason} (${notes})`, "Izin", "");
+        const attachment = document.getElementById("absen-attachment-data").value || "";
+        await savePresenceLog(type, "00:00", null, `Izin: ${reason} (${notes})`, "Izin", attachment);
+        
+        // Reset Attachment inputs
+        document.getElementById("absen-attachment-data").value = "";
+        document.getElementById("absen-file").value = "";
+        currentAttachmentData = null;
         return;
     }
 
@@ -633,15 +677,25 @@ async function performCheckIn() {
         }
 
         let detail = "";
+        let attachment = "";
         if (type === "WFO") {
             detail = `WFO - ${document.getElementById("wfo-coords").value}`;
         } else {
             const loc = document.getElementById("wfh-location").value || "Luar Kantor";
             const task = document.getElementById("wfh-notes").value || "Dinas Luar";
+            attachment = document.getElementById("wfh-attachment-data").value || "";
             detail = `WFH - Lokasi: ${loc} (Tugas: ${task})`;
         }
 
-        await savePresenceLog(type, checkInTimeStr, null, detail, status, photoData);
+        const finalPhoto = photoData || attachment || "";
+        await savePresenceLog(type, checkInTimeStr, null, detail, status, finalPhoto);
+        
+        // Reset WFH attachments
+        if (type === "WFH") {
+            document.getElementById("wfh-attachment-data").value = "";
+            document.getElementById("wfh-file").value = "";
+            currentAttachmentData = null;
+        }
         stopCameraStream();
     }, 2000);
 }
@@ -1057,10 +1111,14 @@ function updatePersonalStats() {
 // Load Staff Profile Detail
 function loadProfileForm() {
     const current = getCurrentEmployee();
+    const extra = parseEmployeeExtra(current);
     document.getElementById("profile-nik").value = current.nik || "BELUM DISKEMA";
     document.getElementById("profile-fullname").value = current.name;
-    document.getElementById("profile-designation").value = current.role;
+    document.getElementById("profile-designation").value = extra.role;
     document.getElementById("profile-department").value = current.department || "Sekretariat";
+    document.getElementById("profile-gender").value = extra.gender;
+    document.getElementById("profile-phone").value = extra.phone;
+    document.getElementById("profile-address").value = extra.address;
     document.getElementById("profile-email").value = current.email || "";
 
     const preview = document.getElementById("profile-img-preview");
@@ -1085,6 +1143,9 @@ async function saveStaffProfile() {
     const updatedName = document.getElementById("profile-fullname").value.trim();
     const updatedRole = document.getElementById("profile-designation").value.trim();
     const updatedDept = document.getElementById("profile-department").value;
+    const updatedGender = document.getElementById("profile-gender").value;
+    const updatedPhone = document.getElementById("profile-phone").value.trim() || "-";
+    const updatedAddress = document.getElementById("profile-address").value.trim() || "-";
     const updatedEmail = document.getElementById("profile-email").value.trim();
     const updatedAvatar = document.getElementById("profile-img-preview").src;
 
@@ -1093,10 +1154,12 @@ async function saveStaffProfile() {
         return;
     }
 
+    const packedRole = packEmployeeExtra(updatedRole, updatedGender, updatedPhone, updatedAddress);
+
     const updated = {
         ...current,
         name: updatedName,
-        role: updatedRole,
+        role: packedRole,
         department: updatedDept,
         email: updatedEmail,
         avatar_url: updatedAvatar.startsWith("data:") ? updatedAvatar : current.avatar_url
@@ -1169,13 +1232,14 @@ function renderPublicDashboard() {
         }
 
         const avatarSrc = emp.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=60";
+        const extra = parseEmployeeExtra(emp);
         
         grid.innerHTML += `
             <div class="aparat-card" onclick="selectActiveUserAndRedirect('${emp.id}')">
                 <img src="${avatarSrc}" class="aparat-avatar" alt="${emp.name}">
                 <div class="aparat-info">
                     <h3 class="aparat-name" title="${emp.name}">${emp.name}</h3>
-                    <p class="aparat-role-text" title="${emp.role}">${emp.role} (${emp.department})</p>
+                    <p class="aparat-role-text" title="${extra.role}">${extra.role} (${emp.department})</p>
                     <div style="margin-bottom: 5px;">
                         <span class="badge ${statusClass}" style="font-size:0.7rem; padding:0.15rem 0.5rem;">${statusText}</span>
                     </div>
@@ -1216,11 +1280,18 @@ function renderAdminLogs() {
         if (log.status === "Izin") statusClass = "stat-footer";
 
         const emp = employees.find(e => e.id === log.employee_id);
-        const avatarSrc = log.photo_data || (emp ? emp.avatar_url : "") || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=50";
+        
+        let photoHtml = "";
+        if (log.photo_data && log.photo_data.startsWith("data:application/pdf")) {
+            photoHtml = `<a href="${log.photo_data}" target="_blank" style="display:inline-flex; align-items:center; justify-content:center; width:35px; height:35px; border-radius:50%; background:var(--primary); color:#fff; text-decoration:none; font-size:0.9rem;" title="Lihat Lampiran PDF">📄</a>`;
+        } else {
+            const avatarSrc = log.photo_data || (emp ? emp.avatar_url : "") || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=50";
+            photoHtml = `<img src="${avatarSrc}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1px solid var(--card-border);">`;
+        }
 
         tbody.innerHTML += `
             <tr>
-                <td><img src="${avatarSrc}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1px solid var(--card-border);"></td>
+                <td>${photoHtml}</td>
                 <td><strong>${log.name}</strong></td>
                 <td>${formatDateIndo(log.date)}</td>
                 <td>${typeBadge}</td>
@@ -1263,16 +1334,24 @@ async function registerNewEmployee() {
     const nameInput = document.getElementById("new-emp-name");
     const roleInput = document.getElementById("new-emp-role");
     const deptInput = document.getElementById("new-emp-dept");
+    const genderInput = document.getElementById("new-emp-gender");
+    const phoneInput = document.getElementById("new-emp-phone");
+    const addressInput = document.getElementById("new-emp-address");
 
     const nik = nikInput.value.trim();
     const name = nameInput.value.trim();
     const role = roleInput.value.trim();
     const department = deptInput.value;
+    const gender = genderInput.value;
+    const phone = phoneInput.value.trim() || "-";
+    const address = addressInput.value.trim() || "-";
 
     if (!nik || !name || !role) {
         showToast("Harap lengkapi semua kolom!", "error");
         return;
     }
+
+    const packedRole = packEmployeeExtra(role, gender, phone, address);
 
     if (editingEmployeeId !== null) {
         // Edit Mode
@@ -1283,7 +1362,7 @@ async function registerNewEmployee() {
             ...employees[empIndex],
             nik: nik,
             name: name,
-            role: role,
+            role: packedRole,
             department: department,
             email: `${name.toLowerCase().replace(/\s+/g, '.')}@kalidengen.go.id`
         };
@@ -1293,7 +1372,7 @@ async function registerNewEmployee() {
                 await supabaseClient.from('employees').update({
                     nik: nik,
                     name: name,
-                    role: role,
+                    role: packedRole,
                     department: department,
                     email: updatedEmp.email
                 }).eq('id', editingEmployeeId);
@@ -1316,7 +1395,7 @@ async function registerNewEmployee() {
             id: "emp-" + Date.now(),
             nik: nik,
             name: name,
-            role: role,
+            role: packedRole,
             department: department,
             email: `${name.toLowerCase().replace(/\s+/g, '.')}@kalidengen.go.id`,
             avatar_url: ""
@@ -1339,6 +1418,9 @@ async function registerNewEmployee() {
     nikInput.value = "";
     nameInput.value = "";
     roleInput.value = "";
+    phoneInput.value = "";
+    addressInput.value = "";
+    genderInput.selectedIndex = 0;
 
     injectEmployeeSelector();
     updateAdminStats();
