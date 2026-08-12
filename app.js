@@ -700,10 +700,27 @@ async function performCheckIn() {
         }
     }
 
+    if (type === "WFH") {
+        const loc = document.getElementById("wfh-location").value.trim();
+        const task = document.getElementById("wfh-notes").value.trim();
+        const attachment = document.getElementById("wfh-attachment-data").value;
+        
+        if (!loc || !task || !attachment) {
+            showToast("Harap isi Lokasi, Tugas, dan Unggah Surat Tugas/Lampiran!", "error");
+            return;
+        }
+    }
+
     if (type === "ABSEN") {
         const reason = document.getElementById("absen-reason").value;
         const notes = document.getElementById("absen-notes").value || "Tanpa Keterangan";
         const attachment = document.getElementById("absen-attachment-data").value || "";
+        
+        if (!attachment) {
+            showToast("Harap unggah surat keterangan dokter atau surat izin terlebih dahulu!", "error");
+            return;
+        }
+
         await savePresenceLog(type, "00:00", null, `Izin: ${reason} (${notes})`, "Izin", attachment);
         
         // Reset Attachment inputs
@@ -739,9 +756,11 @@ async function performCheckIn() {
         const checkInTimeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         
         let status = "Tepat Waktu";
-        const [targetH, targetM] = ["07", "30"].map(Number);
-        if (now.getHours() > targetH || (now.getHours() === targetH && now.getMinutes() > targetM)) {
-            status = "Terlambat";
+        if (type === "WFO") {
+            const [targetH, targetM] = ["07", "30"].map(Number);
+            if (now.getHours() > targetH || (now.getHours() === targetH && now.getMinutes() > targetM)) {
+                status = "Terlambat";
+            }
         }
 
         let detail = "";
@@ -749,8 +768,8 @@ async function performCheckIn() {
         if (type === "WFO") {
             detail = `WFO - ${document.getElementById("wfo-coords").value}`;
         } else {
-            const loc = document.getElementById("wfh-location").value || "Luar Kantor";
-            const task = document.getElementById("wfh-notes").value || "Dinas Luar";
+            const loc = document.getElementById("wfh-location").value;
+            const task = document.getElementById("wfh-notes").value;
             attachment = document.getElementById("wfh-attachment-data").value || "";
             detail = `WFH - Lokasi: ${loc} (Tugas: ${task})`;
         }
