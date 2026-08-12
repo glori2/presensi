@@ -380,12 +380,64 @@ function injectEmployeeSelector() {
     selector.innerHTML = optionsHtml;
 }
 
+let pendingActiveUserId = null;
+let pendingRedirectView = null;
+
 async function changeActiveUser(id) {
-    currentEmployeeId = id;
-    sessionStorage.removeItem("apresi_admin_unlocked");
-    updateUserProfileUI();
-    syncUIState();
-    showToast(`Beralih ke karyawan: ${getCurrentEmployee().name}`, "success");
+    if (id === currentEmployeeId) return;
+
+    const emp = employees.find(e => e.id === id);
+    if (!emp) return;
+
+    pendingActiveUserId = id;
+    pendingRedirectView = null;
+
+    document.getElementById("pamong-password-title").textContent = `Konfirmasi Sandi: ${emp.name}`;
+    document.getElementById("pamong-password-input").value = "";
+    document.getElementById("pamong-password-modal").style.display = "flex";
+    document.getElementById("pamong-password-input").focus();
+}
+
+function closePamongPasswordModal() {
+    document.getElementById("pamong-password-modal").style.display = "none";
+    pendingActiveUserId = null;
+    pendingRedirectView = null;
+    
+    // Revert dropdown select back to currentEmployeeId
+    const selector = document.getElementById("demo-user-select");
+    if (selector) {
+        selector.value = currentEmployeeId;
+    }
+}
+
+async function verifyPamongPassword() {
+    const inputPass = document.getElementById("pamong-password-input").value;
+    if (!pendingActiveUserId) return;
+
+    const emp = employees.find(e => e.id === pendingActiveUserId);
+    if (!emp) return;
+
+    const correctPassword = emp.password || "password123";
+
+    if (inputPass === correctPassword) {
+        currentEmployeeId = pendingActiveUserId;
+        sessionStorage.removeItem("apresi_admin_unlocked");
+        updateUserProfileUI();
+        syncUIState();
+        showToast(`Selamat datang, ${emp.name}!`, "success");
+        document.getElementById("pamong-password-modal").style.display = "none";
+
+        if (pendingRedirectView) {
+            switchView(pendingRedirectView);
+        }
+
+        pendingActiveUserId = null;
+        pendingRedirectView = null;
+    } else {
+        showToast("Sandi yang Anda masukkan salah!", "error");
+        document.getElementById("pamong-password-input").value = "";
+        document.getElementById("pamong-password-input").focus();
+    }
 }
 
 // Toggle WFO/WFH Form
@@ -1138,6 +1190,7 @@ function loadProfileForm() {
     document.getElementById("profile-phone").value = extra.phone;
     document.getElementById("profile-address").value = extra.address;
     document.getElementById("profile-privilege").value = extra.privilege;
+    document.getElementById("profile-password").value = "";
     document.getElementById("profile-email").value = current.email || "";
 
     const preview = document.getElementById("profile-img-preview");
@@ -1166,6 +1219,8 @@ async function saveStaffProfile() {
     const updatedPhone = document.getElementById("profile-phone").value.trim() || "-";
     const updatedAddress = document.getElementById("profile-address").value.trim() || "-";
     const updatedPrivilege = document.getElementById("profile-privilege").value || "user";
+    const updatedPasswordInput = document.getElementById("profile-password").value;
+    const updatedPassword = updatedPasswordInput.trim() !== "" ? updatedPasswordInput.trim() : (current.password || "password123");
     const updatedEmail = document.getElementById("profile-email").value.trim();
     const updatedAvatar = document.getElementById("profile-img-preview").src;
 
@@ -1182,6 +1237,7 @@ async function saveStaffProfile() {
         role: packedRole,
         department: updatedDept,
         email: updatedEmail,
+        password: updatedPassword,
         avatar_url: updatedAvatar.startsWith("data:") ? updatedAvatar : current.avatar_url
     };
 
@@ -1199,6 +1255,7 @@ async function saveStaffProfile() {
     employees[index] = updated;
     localStorage.setItem("apresi_employees", JSON.stringify(employees));
 
+    document.getElementById("profile-password").value = "";
     showToast("Profil berhasil diperbarui!", "success");
     updateUserProfileUI();
     injectEmployeeSelector();
@@ -1358,6 +1415,7 @@ async function registerNewEmployee() {
     const phoneInput = document.getElementById("new-emp-phone");
     const addressInput = document.getElementById("new-emp-address");
     const privilegeInput = document.getElementById("new-emp-privilege");
+    const passwordInput = document.getElementById("new-emp-password");
 
     const nik = nikInput.value.trim();
     const name = nameInput.value.trim();
@@ -1367,6 +1425,7 @@ async function registerNewEmployee() {
     const phone = phoneInput.value.trim() || "-";
     const address = addressInput.value.trim() || "-";
     let privilege = privilegeInput.value;
+    const password = passwordInput.value.trim() || "password123";
 
     // Strict Rule: Muh Masruri Mustofa must always be admin
     if (nik === "3401010808880002" || name.toLowerCase().includes("masruri")) {
@@ -1391,6 +1450,7 @@ async function registerNewEmployee() {
             name: name,
             role: packedRole,
             department: department,
+            password: password,
             email: `${name.toLowerCase().replace(/\s+/g, '.')}@kalidengen.go.id`
         };
 
@@ -1401,6 +1461,7 @@ async function registerNewEmployee() {
                     name: name,
                     role: packedRole,
                     department: department,
+                    password: password,
                     email: updatedEmp.email
                 }).eq('id', editingEmployeeId);
             } catch (e) {
@@ -1424,6 +1485,7 @@ async function registerNewEmployee() {
             name: name,
             role: packedRole,
             department: department,
+            password: password,
             email: `${name.toLowerCase().replace(/\s+/g, '.')}@kalidengen.go.id`,
             avatar_url: ""
         };
@@ -1447,6 +1509,7 @@ async function registerNewEmployee() {
     roleInput.value = "";
     phoneInput.value = "";
     addressInput.value = "";
+    passwordInput.value = "";
     genderInput.selectedIndex = 0;
     privilegeInput.value = "user";
     privilegeInput.disabled = false;
@@ -1675,6 +1738,7 @@ function editEmployeeInline(empId) {
     document.getElementById("new-emp-gender").value = extra.gender;
     document.getElementById("new-emp-phone").value = extra.phone;
     document.getElementById("new-emp-address").value = extra.address;
+    document.getElementById("new-emp-password").value = emp.password || "password123";
     
     const privilegeInput = document.getElementById("new-emp-privilege");
     privilegeInput.value = extra.privilege;
@@ -1696,6 +1760,19 @@ function editEmployeeInline(empId) {
 
 // Click on Public Board employee card to select user and redirect to employee area
 async function selectActiveUserAndRedirect(empId) {
-    await changeActiveUser(empId);
-    switchView('employee');
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    if (empId === currentEmployeeId) {
+        switchView('employee');
+        return;
+    }
+
+    pendingActiveUserId = empId;
+    pendingRedirectView = 'employee';
+
+    document.getElementById("pamong-password-title").textContent = `Konfirmasi Sandi: ${emp.name}`;
+    document.getElementById("pamong-password-input").value = "";
+    document.getElementById("pamong-password-modal").style.display = "flex";
+    document.getElementById("pamong-password-input").focus();
 }
