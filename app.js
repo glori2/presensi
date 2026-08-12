@@ -315,30 +315,15 @@ function updateUserProfileUI() {
 }
 
 function injectEmployeeSelector() {
-    const consoleCard = document.querySelector("#emp-subtab-presensi .attendance-console");
-    if (!consoleCard) return;
+    const selector = document.getElementById("demo-user-select");
+    if (!selector) return;
 
-    const oldSelector = document.getElementById("demo-user-selector-group");
-    if (oldSelector) oldSelector.remove();
-
-    const selectGroup = document.createElement("div");
-    selectGroup.id = "demo-user-selector-group";
-    selectGroup.className = "form-group";
-    selectGroup.style.marginBottom = "1rem";
-    
     let optionsHtml = "";
     employees.forEach(emp => {
         optionsHtml += `<option value="${emp.id}" ${emp.id === currentEmployeeId ? 'selected' : ''}>${emp.name} (${emp.role})</option>`;
     });
 
-    selectGroup.innerHTML = `
-        <label for="demo-user-select">Simulasi Login Karyawan (Pilih Karyawan)</label>
-        <select class="form-input" id="demo-user-select" onchange="changeActiveUser(this.value)">
-            ${optionsHtml}
-        </select>
-    `;
-
-    consoleCard.insertBefore(selectGroup, consoleCard.firstChild);
+    selector.innerHTML = optionsHtml;
 }
 
 async function changeActiveUser(id) {
