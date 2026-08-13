@@ -13,10 +13,16 @@ try {
 
 // System State
 let employees = [
-    { id: "emp-1", nik: "NIK202601", name: "John Doe", role: "Software Engineer", department: "IT & Engineering", email: "john.doe@apresi.local", avatar_url: "" },
-    { id: "emp-2", nik: "NIK202602", name: "Rian Hidayat", role: "Kepala Kantor", department: "Admin", email: "rian.h@apresi.local", avatar_url: "" },
-    { id: "emp-3", nik: "NIK202603", name: "Siti Aminah", role: "Staf Administrasi", department: "Sekretariat", email: "siti.a@apresi.local", avatar_url: "" },
-    { id: "emp-1786005897894", nik: "3401010808880002", name: "Muh Masruri Mustofa", role: "Super Admin", department: "Admin", email: "masruri@kalidengen.go.id", avatar_url: "" }
+    { id: "emp-2", nik: "3401010101590001", name: "Sunardi", role: "Lurah || Laki-laki || - || - || admin", department: "Admin", email: "sunardi@kalidengen.go.id", password: "password123", avatar_url: "" },
+    { id: "emp-1", nik: "3401010808880002", name: "Muh. Masruri Mustofa", role: "Carik || Laki-laki || - || - || admin", department: "Sekretariat", email: "masruri@kalidengen.go.id", password: "password123", avatar_url: "" },
+    { id: "emp-1786507237509", nik: "3401010212960001", name: "Viki Wulandari", role: "Danarta || Perempuan || - || - || user", department: "Keuangan", email: "viki.wulandari@kalidengen.go.id", password: "password123", avatar_url: "" },
+    { id: "emp-4", nik: "3401012211780001", name: "Agus Endarto", role: "Panata Laksana Sarta Pangripta || Laki-laki || - || - || user", department: "Sekretariat", email: "agus.endarto@kalidengen.go.id", password: "password123", avatar_url: "" },
+    { id: "emp-5", nik: "3401012403650001", name: "Subarno", role: "Jagabaya || Laki-laki || - || - || user", department: "Keamanan", email: "subarno@kalidengen.go.id", password: "password123", avatar_url: "" },
+    { id: "emp-6", nik: "3401010807630001", name: "Saridi", role: "Ulu-Ulu || Laki-laki || - || - || user", department: "Kemakmuran", email: "saridi@kalidengen.go.id", password: "password123", avatar_url: "" },
+    { id: "emp-7", nik: "3401013112640001", name: "Sumardi", role: "Kamituwa || Laki-laki || - || - || user", department: "Pemerintahan", email: "sumardi@kalidengen.go.id", password: "password123", avatar_url: "" },
+    { id: "emp-8", nik: "3401011209740001", name: "Widi Hartono", role: "Dukuh Kalidengen I || Laki-laki || - || - || user", department: "Kewilayahan (Dukuh)", email: "widi.hartono@kalidengen.go.id", password: "password123", avatar_url: "" },
+    { id: "emp-9", nik: "3401012204930001", name: "Rendi Ardiyanto", role: "Dukuh Kalidengen II || Laki-laki || - || - || user", department: "Kewilayahan (Dukuh)", email: "rendi.ardiyanto@kalidengen.go.id", password: "password123", avatar_url: "" },
+    { id: "emp-10", nik: "3401011709810001", name: "Edi Supriyanto", role: "Dukuh Sidatan || Laki-laki || - || - || user", department: "Kewilayahan (Dukuh)", email: "edi.supriyanto@kalidengen.go.id", password: "password123", avatar_url: "" }
 ];
 let attendanceLogs = [];
 let dailyJournals = [];
