@@ -641,10 +641,15 @@ function checkTodayAttendanceState() {
         togglePresenceTypeInputs();
 
         const type = document.querySelector('input[name="presence_type"]:checked')?.value || "WFO";
-
-        if (type !== "ABSEN" && !isCheckinOpen) {
+        
+        if (type === "WFO" && !isCheckinOpen) {
             btnCheckin.disabled = true;
-            btnCheckin.textContent = `❌ Batas Check-In: ${timeConfig.inEnd}`;
+            if (nowMins < inStartMins) {
+                const remain = inStartMins - nowMins;
+                btnCheckin.textContent = `⏳ Check-In Dibuka Pukul ${timeConfig.inStart} (${remain} menit lagi)`;
+            } else {
+                btnCheckin.textContent = `❌ Batas Check-In: ${timeConfig.inEnd}`;
+            }
         } else {
             btnCheckin.disabled = false;
             btnCheckin.textContent = type === "ABSEN" ? "Kirim Permohonan Izin / Cuti" : "Check-In Presensi";
