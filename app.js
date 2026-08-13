@@ -516,30 +516,61 @@ function getCurrentGPS() {
     );
 }
 
-// Work Schedule Constraints (Luar Ramadan)
+// Work Schedule – Kalurahan Kalidengen (Peraturan Resmi)
+// Senin-Kamis : masuk 07.30, pulang 15.45, istirahat 12.00-12.30
+// Jumat       : masuk 07.30, pulang 15.30, istirahat 11.30-12.30
+// Toleransi presensi : 30 menit sebelum & sesudah jadwal
 function getPresenceTimeConfig() {
     const now = new Date();
-    const day = now.getDay(); 
-    
-    let config = {
-        isWorkday: true,
-        startTime: "07:30",
-        endTime: "15:45",
-        inStart: "06:30",
-        inEnd: "08:30",
-        outStart: "14:45",
-        outEnd: "16:45"
-    };
+    const day = now.getDay(); // 0=Minggu, 1=Senin ... 5=Jumat, 6=Sabtu
 
     if (day === 0 || day === 6) {
-        config.isWorkday = false;
-    } else if (day === 5) { // Jumat
-        config.endTime = "15:30";
-        config.outStart = "14:30";
-        config.outEnd = "16:30";
+        return { isWorkday: false };
     }
 
-    return config;
+    if (day === 5) { // Jumat
+        return {
+            isWorkday: true,
+            dayLabel: "Jum'at",
+            startTime: "07:30",      // jam masuk resmi
+            endTime:   "15:30",      // jam pulang resmi
+            breakStart: "11:30",
+            breakEnd:   "12:30",
+            // Check-in window: 07:00 – 08:00 (toleransi 30 menit)
+            inStart:   "07:00",
+            inEnd:     "08:00",
+            // Batas "Terlambat": setelah 07:30
+            lateAfter: "07:30",
+            // Check-out window: 15:00 – 16:00 (toleransi 30 menit)
+            outStart:  "15:00",
+            outEnd:    "16:00",
+            // Pulang resmi: 15:30 – checkout sebelum ini = Pulang Cepat
+            earlyBefore: "15:30"
+        };
+    } else { // Senin – Kamis
+        return {
+            isWorkday: true,
+            dayLabel: "Senin–Kamis",
+            startTime: "07:30",
+            endTime:   "15:45",
+            breakStart: "12:00",
+            breakEnd:   "12:30",
+            // Check-in window: 07:00 – 08:00
+            inStart:   "07:00",
+            inEnd:     "08:00",
+            lateAfter: "07:30",
+            // Check-out window: 15:15 – 16:15
+            outStart:  "15:15",
+            outEnd:    "16:15",
+            earlyBefore: "15:45"
+        };
+    }
+}
+
+// Helper: parse "HH:MM" to total minutes since midnight
+function timeToMinutes(timeStr) {
+    const [h, m] = timeStr.split(":").map(Number);
+    return h * 60 + m;
 }
 
 // Check Presence State & Lock
@@ -548,69 +579,72 @@ function checkTodayAttendanceState() {
     const today = now.toISOString().split("T")[0];
     const logToday = attendanceLogs.find(l => l.employee_id === currentEmployeeId && l.date === today);
 
-    const btnCheckin = document.getElementById("btn-checkin");
+    const btnCheckin  = document.getElementById("btn-checkin");
     const btnCheckout = document.getElementById("btn-checkout");
-    const timeConfig = getPresenceTimeConfig();
+    const scheduleInfo = document.getElementById("schedule-info");
+    const timeConfig  = getPresenceTimeConfig();
 
     if (!btnCheckin) return;
+
+    if (scheduleInfo) {
+        if (!timeConfig.isWorkday) {
+            scheduleInfo.textContent = "🏖️ Hari ini Libur Akhir Pekan";
+        } else {
+            scheduleInfo.textContent = `📅 Jadwal ${timeConfig.dayLabel}: Masuk ${timeConfig.startTime} – Pulang ${timeConfig.endTime}`;
+        }
+    }
 
     if (!timeConfig.isWorkday) {
         btnCheckin.style.display = "block";
         btnCheckin.disabled = true;
-        btnCheckin.textContent = "Hari Ini Libur Akhir Pekan";
+        btnCheckin.textContent = "🏖️ Hari Ini Libur Akhir Pekan";
         btnCheckout.style.display = "none";
         return;
     }
 
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+
     if (logToday) {
         if (logToday.type === "ABSEN") {
-            btnCheckin.style.display = "block";
+            btnCheckin.style.display  = "block";
             btnCheckin.disabled = true;
-            btnCheckin.textContent = `Sudah Izin (${logToday.status})`;
+            btnCheckin.textContent = `✅ Sudah Izin (${logToday.status})`;
             btnCheckout.style.display = "none";
         } else if (logToday.check_out_time) {
-            btnCheckin.style.display = "block";
+            btnCheckin.style.display  = "block";
             btnCheckin.disabled = true;
-            btnCheckin.textContent = "Selesai Kerja Hari Ini";
+            btnCheckin.textContent = "✅ Selesai Kerja Hari Ini";
             btnCheckout.style.display = "none";
         } else {
-            const [outHStart, outMStart] = timeConfig.outStart.split(":").map(Number);
-            const [outHEnd, outMEnd] = timeConfig.outEnd.split(":").map(Number);
-            const curH = now.getHours();
-            const curM = now.getMinutes();
+            const outStartMins  = timeToMinutes(timeConfig.outStart);
+            const outEndMins    = timeToMinutes(timeConfig.outEnd);
+            const isCheckoutOpen = nowMins >= outStartMins && nowMins <= outEndMins;
 
-            const isCheckoutOpen = (curH > outHStart || (curH === outHStart && curM >= outMStart)) &&
-                                  (curH < outHEnd || (curH === outHEnd && curM <= outMEnd));
-
-            btnCheckin.style.display = "none";
+            btnCheckin.style.display  = "none";
             btnCheckout.style.display = "block";
 
             if (!isCheckoutOpen) {
                 btnCheckout.disabled = true;
-                btnCheckout.textContent = `Check-Out Belum/Selesai Dibuka (${timeConfig.outStart} - ${timeConfig.outEnd})`;
+                btnCheckout.textContent = (nowMins < outStartMins) ? "⏳ Belum Waktunya Pulang" : "❌ Waktu Check-Out Selesai";
             } else {
                 btnCheckout.disabled = false;
                 btnCheckout.textContent = "Check-Out Presensi";
             }
         }
     } else {
-        const [inHStart, inMStart] = timeConfig.inStart.split(":").map(Number);
-        const [inHEnd, inMEnd] = timeConfig.inEnd.split(":").map(Number);
-        const curH = now.getHours();
-        const curM = now.getMinutes();
+        const inStartMins = timeToMinutes(timeConfig.inStart);
+        const inEndMins   = timeToMinutes(timeConfig.inEnd);
+        const isCheckinOpen = nowMins >= inStartMins && nowMins <= inEndMins;
 
-        const isCheckinOpen = (curH > inHStart || (curH === inHStart && curM >= inMStart)) &&
-                             (curH < inHEnd || (curH === inHEnd && curM <= inMEnd));
-
-        btnCheckin.style.display = "block";
+        btnCheckin.style.display  = "block";
         btnCheckout.style.display = "none";
         togglePresenceTypeInputs();
 
         const type = document.querySelector('input[name="presence_type"]:checked')?.value || "WFO";
-        
+
         if (type !== "ABSEN" && !isCheckinOpen) {
             btnCheckin.disabled = true;
-            btnCheckin.textContent = `Check-In Ditutup (${timeConfig.inStart} - ${timeConfig.inEnd})`;
+            btnCheckin.textContent = `❌ Batas Check-In: ${timeConfig.inEnd}`;
         } else {
             btnCheckin.disabled = false;
             btnCheckin.textContent = type === "ABSEN" ? "Kirim Permohonan Izin / Cuti" : "Check-In Presensi";
@@ -766,8 +800,10 @@ async function performCheckIn() {
         
         let status = "Tepat Waktu";
         if (type === "WFO") {
-            const [targetH, targetM] = ["07", "30"].map(Number);
-            if (now.getHours() > targetH || (now.getHours() === targetH && now.getMinutes() > targetM)) {
+            const timeConfig = getPresenceTimeConfig();
+            const lateAfterMins = timeToMinutes(timeConfig.lateAfter || "07:30");
+            const nowMins = now.getHours() * 60 + now.getMinutes();
+            if (nowMins > lateAfterMins) {
                 status = "Terlambat";
             }
         }
@@ -808,33 +844,54 @@ async function performCheckOut() {
 
     const now = new Date();
     const checkOutTimeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    
-    // Calculate working hours
+
+    // Determine checkout status
+    const timeConfig = getPresenceTimeConfig();
+    let checkoutStatus = "Normal";
+    if (timeConfig.isWorkday && timeConfig.earlyBefore) {
+        const earlyMins  = timeToMinutes(timeConfig.earlyBefore);
+        const nowMins    = now.getHours() * 60 + now.getMinutes();
+        if (nowMins < earlyMins) {
+            checkoutStatus = "Pulang Cepat";
+        }
+    }
+
+    // Calculate working hours (subtract break time)
     const checkinTimeRaw = attendanceLogs[logIndex].check_in_time;
     const [inH, inM] = checkinTimeRaw.split(":").map(Number);
     const outH = now.getHours();
     const outM = now.getMinutes();
 
-    let diffHours = outH - inH;
+    let diffHours   = outH - inH;
     let diffMinutes = outM - inM;
-    if (diffMinutes < 0) {
-        diffHours -= 1;
-        diffMinutes += 60;
+    if (diffMinutes < 0) { diffHours -= 1; diffMinutes += 60; }
+
+    // Deduct break time
+    let breakMinutes = 30; // default Senin-Kamis
+    if (timeConfig.breakStart && timeConfig.breakEnd) {
+        breakMinutes = timeToMinutes(timeConfig.breakEnd) - timeToMinutes(timeConfig.breakStart);
     }
-    const workingHours = parseFloat((diffHours + (diffMinutes / 60)).toFixed(1));
+    const totalMins   = diffHours * 60 + diffMinutes - breakMinutes;
+    const workingHours = parseFloat(Math.max(0, totalMins / 60).toFixed(1));
+
+    const detail = checkoutStatus === "Pulang Cepat"
+        ? `Pulang pukul ${checkOutTimeStr} (Lebih awal dari ${timeConfig.earlyBefore})`
+        : `Pulang pukul ${checkOutTimeStr}`;
 
     const updatedLog = {
         ...attendanceLogs[logIndex],
         check_out_time: checkOutTimeStr,
-        working_hours: workingHours
+        working_hours:  workingHours,
+        checkout_status: checkoutStatus
     };
 
     let pushSuccess = false;
     if (supabaseClient) {
         try {
             const { error } = await supabaseClient.from('attendance_logs').update({
-                check_out_time: checkOutTimeStr,
-                working_hours: workingHours
+                check_out_time:   checkOutTimeStr,
+                working_hours:    workingHours,
+                checkout_status:  checkoutStatus
             }).eq('id', updatedLog.id);
             if (!error) pushSuccess = true;
         } catch (e) {
@@ -845,7 +902,11 @@ async function performCheckOut() {
     attendanceLogs[logIndex] = updatedLog;
     localStorage.setItem("apresi_logs", JSON.stringify(attendanceLogs));
 
-    showToast("Berhasil Check-Out! Selamat beristirahat.", "success");
+    if (checkoutStatus === "Pulang Cepat") {
+        showToast(`⚠️ Check-Out berhasil — Pulang sebelum ${timeConfig.earlyBefore} (Pulang Cepat).`, "warning");
+    } else {
+        showToast("✅ Berhasil Check-Out! Selamat beristirahat.", "success");
+    }
     syncUIState();
 }
 
