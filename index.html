@@ -9,6 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- SheetJS for Excel Export -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -409,6 +411,10 @@
                         <input type="radio" name="admin_subtab" value="konfigurasi" onchange="switchAdminSubtab('konfigurasi')">
                         <span class="type-label">Konfigurasi Kantor</span>
                     </label>
+                    <label class="type-option">
+                        <input type="radio" name="admin_subtab" value="analitik" onchange="switchAdminSubtab('analitik')">
+                        <span class="type-label">📊 Analitik &amp; AI</span>
+                    </label>
                 </div>
 
                 <!-- Admin Sub-tab 1: Monitor & Registrasi -->
@@ -624,6 +630,97 @@
                             <button class="btn btn-primary" onclick="saveOfficeConfig()">Simpan Konfigurasi</button>
                         </div>
                     </div>
+                </div>
+
+                <!-- Admin Sub-tab 5: Analitik & AI -->
+                <div id="admin-subtab-analitik" class="admin-subtab-panel" style="display: none;">
+
+                    <!-- AI Insight Panel -->
+                    <div class="glass-card" style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
+                            <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">🤖</div>
+                            <div>
+                                <h2 class="card-title" style="margin: 0;">AI Insight Disiplin</h2>
+                                <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0;">Analisis otomatis data kehadiran seluruh aparatur</p>
+                            </div>
+                            <button class="btn btn-primary" onclick="generateAIInsight()" style="margin-left: auto; padding: 0.4rem 1rem; font-size: 0.8rem;">🔄 Perbarui Analisis</button>
+                        </div>
+                        <div id="ai-insight-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+                            <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: 12px; padding: 1rem;">
+                                <div style="font-size: 0.7rem; color: #818cf8; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem;">📋 Ringkasan Bulan Ini</div>
+                                <div id="ai-summary" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-primary);">Memuat analisis...</div>
+                            </div>
+                            <div style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 12px; padding: 1rem;">
+                                <div style="font-size: 0.7rem; color: #f87171; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem;">⚠️ Perhatian Khusus</div>
+                                <div id="ai-warning" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-primary);">Memuat...</div>
+                            </div>
+                            <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: 12px; padding: 1rem;">
+                                <div style="font-size: 0.7rem; color: #34d399; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem;">🏆 Prestasi</div>
+                                <div id="ai-praise" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-primary);">Memuat...</div>
+                            </div>
+                            <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); border-radius: 12px; padding: 1rem;">
+                                <div style="font-size: 0.7rem; color: #fbbf24; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem;">💡 Rekomendasi</div>
+                                <div id="ai-recommendation" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-primary);">Memuat...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                        <!-- Chart Kehadiran Bulanan -->
+                        <div class="glass-card">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                                <h2 class="card-title" style="margin: 0;">📈 Tren Kehadiran Bulanan</h2>
+                                <select id="chart-emp-filter" class="form-input" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.75rem;" onchange="renderAttendanceChart()">
+                                    <option value="all">Semua Pamong</option>
+                                </select>
+                            </div>
+                            <div style="position: relative; height: 220px;">
+                                <canvas id="attendance-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Chart Tipe Kehadiran (Donut) -->
+                        <div class="glass-card">
+                            <h2 class="card-title" style="margin-bottom: 1rem;">🍩 Distribusi Tipe Presensi</h2>
+                            <div style="position: relative; height: 220px; display: flex; align-items: center; justify-content: center;">
+                                <canvas id="type-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ranking Kedisiplinan -->
+                    <div class="glass-card">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+                            <h2 class="card-title" style="margin: 0;">🏅 Ranking Kedisiplinan Aparatur</h2>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <select id="ranking-month-filter" class="form-input" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.75rem;" onchange="renderDisciplineRanking()">
+                                    <option value="all">Semua Bulan</option>
+                                </select>
+                                <span style="font-size: 0.72rem; color: var(--text-secondary);">Skor = Kehadiran% × 70 + KepuntuhanBonus</span>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="table" id="ranking-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px; text-align:center;">Rank</th>
+                                        <th>Nama Pamong</th>
+                                        <th>Jabatan</th>
+                                        <th>Total Hadir</th>
+                                        <th>Terlambat</th>
+                                        <th>Izin</th>
+                                        <th>Alpha</th>
+                                        <th>Kehadiran %</th>
+                                        <th>Skor Disiplin</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ranking-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 

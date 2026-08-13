@@ -290,6 +290,9 @@ function switchAdminSubtab(tabName) {
     } else if (tabName === 'konfigurasi') {
         document.getElementById("admin-subtab-konfigurasi").style.display = "block";
         loadOfficeConfigFromStorage();
+    } else if (tabName === 'analitik') {
+        document.getElementById("admin-subtab-analitik").style.display = "block";
+        initAnalyticsDashboard();
     }
 }
 
@@ -1800,4 +1803,330 @@ async function selectActiveUserAndRedirect(empId) {
     document.getElementById("pamong-password-input").value = "";
     document.getElementById("pamong-password-modal").style.display = "flex";
     document.getElementById("pamong-password-input").focus();
+}
+
+// ============================================================
+// ANALITIK & AI DASHBOARD
+// ============================================================
+
+let attendanceChartInstance = null;
+let typeChartInstance = null;
+
+function initAnalyticsDashboard() {
+    populateChartEmpFilter();
+    populateRankingMonthFilter();
+    renderAttendanceChart();
+    renderTypeChart();
+    renderDisciplineRanking();
+    generateAIInsight();
+}
+
+function populateChartEmpFilter() {
+    const sel = document.getElementById("chart-emp-filter");
+    if (!sel) return;
+    const existing = sel.querySelectorAll("option:not([value='all'])");
+    existing.forEach(o => o.remove());
+    employees.forEach(emp => {
+        const o = document.createElement("option");
+        o.value = emp.id;
+        o.textContent = emp.name;
+        sel.appendChild(o);
+    });
+}
+
+function populateRankingMonthFilter() {
+    const sel = document.getElementById("ranking-month-filter");
+    if (!sel) return;
+    const existing = sel.querySelectorAll("option:not([value='all'])");
+    existing.forEach(o => o.remove());
+
+    const months = new Set(attendanceLogs.map(l => l.date ? l.date.substring(0, 7) : null).filter(Boolean));
+    const sorted = [...months].sort().reverse();
+    sorted.forEach(m => {
+        const d = new Date(m + "-01");
+        const label = d.toLocaleDateString('id-ID', { year: 'numeric', month: 'long' });
+        const o = document.createElement("option");
+        o.value = m;
+        o.textContent = label;
+        sel.appendChild(o);
+    });
+}
+
+function renderAttendanceChart() {
+    const sel = document.getElementById("chart-emp-filter");
+    const empFilter = sel ? sel.value : "all";
+
+    // Get last 6 months
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(1);
+        d.setMonth(d.getMonth() - i);
+        months.push(d.toISOString().substring(0, 7));
+    }
+
+    const labels = months.map(m => {
+        const d = new Date(m + "-01");
+        return d.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
+    });
+
+    let datasets = [];
+    const colors = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#14b8a6','#84cc16'];
+
+    if (empFilter === "all") {
+        // Aggregate all employees
+        const dataCounts = months.map(m => attendanceLogs.filter(l =>
+            l.date && l.date.startsWith(m) && l.type !== "ABSEN"
+        ).length);
+        datasets = [{
+            label: "Total Kehadiran",
+            data: dataCounts,
+            backgroundColor: 'rgba(99,102,241,0.25)',
+            borderColor: '#6366f1',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            pointBackgroundColor: '#6366f1',
+            pointRadius: 4
+        }];
+    } else {
+        const emp = employees.find(e => e.id === empFilter);
+        if (emp) {
+            const dataCounts = months.map(m => attendanceLogs.filter(l =>
+                l.employee_id === empFilter && l.date && l.date.startsWith(m) && l.type !== "ABSEN"
+            ).length);
+            datasets = [{
+                label: emp.name,
+                data: dataCounts,
+                backgroundColor: 'rgba(99,102,241,0.25)',
+                borderColor: '#6366f1',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#6366f1',
+                pointRadius: 4
+            }];
+        }
+    }
+
+    const ctx = document.getElementById("attendance-chart");
+    if (!ctx) return;
+
+    if (attendanceChartInstance) {
+        attendanceChartInstance.destroy();
+        attendanceChartInstance = null;
+    }
+
+    attendanceChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#cbd5e1', font: { size: 11 } } }
+            },
+            scales: {
+                x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#94a3b8', font: { size: 10 }, stepSize: 1 },
+                    grid: { color: 'rgba(255,255,255,0.05)' }
+                }
+            }
+        }
+    });
+}
+
+function renderTypeChart() {
+    const wfo = attendanceLogs.filter(l => l.type === "WFO").length;
+    const wfh = attendanceLogs.filter(l => l.type === "WFH").length;
+    const izin = attendanceLogs.filter(l => l.type === "ABSEN").length;
+
+    const ctx = document.getElementById("type-chart");
+    if (!ctx) return;
+
+    if (typeChartInstance) {
+        typeChartInstance.destroy();
+        typeChartInstance = null;
+    }
+
+    typeChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['WFO (Kantor)', 'Dinas Luar (WFH)', 'Izin / Absen'],
+            datasets: [{
+                data: [wfo, wfh, izin],
+                backgroundColor: ['#6366f1', '#10b981', '#f59e0b'],
+                borderColor: 'rgba(255,255,255,0.05)',
+                borderWidth: 2,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#cbd5e1', font: { size: 10 }, padding: 12, boxWidth: 12 }
+                }
+            }
+        }
+    });
+}
+
+function renderDisciplineRanking() {
+    const sel = document.getElementById("ranking-month-filter");
+    const monthFilter = sel ? sel.value : "all";
+    const tbody = document.getElementById("ranking-table-body");
+    if (!tbody) return;
+
+    // Calculate total working days in the selected period (approx)
+    const filteredLogs = monthFilter === "all"
+        ? attendanceLogs
+        : attendanceLogs.filter(l => l.date && l.date.startsWith(monthFilter));
+
+    const totalWorkingDays = monthFilter === "all"
+        ? 22  // approx per month x 1 (baseline)
+        : 22;
+
+    const rankData = employees.map(emp => {
+        const empLogs = filteredLogs.filter(l => l.employee_id === emp.id);
+        const extra = parseEmployeeExtra(emp);
+
+        const hadir = empLogs.filter(l => l.type !== "ABSEN").length;
+        const terlambat = empLogs.filter(l => l.status === "Terlambat").length;
+        const izin = empLogs.filter(l => l.type === "ABSEN").length;
+        const alpha = Math.max(0, totalWorkingDays - hadir - izin);
+        const pctHadir = totalWorkingDays > 0 ? Math.min(100, Math.round((hadir / totalWorkingDays) * 100)) : 0;
+
+        // Discipline score: attendance% x 0.7 + bonus for zero tardiness
+        const terlambatPenalty = Math.min(terlambat * 2, 20);
+        const score = Math.max(0, Math.round(pctHadir * 0.7 - terlambatPenalty + (terlambat === 0 && hadir > 0 ? 10 : 0)));
+
+        return { emp, extra, hadir, terlambat, izin, alpha, pctHadir, score };
+    }).sort((a, b) => b.score - a.score);
+
+    const rankBadge = (rank) => {
+        if (rank === 1) return `<span style="font-size:1.3rem;">🥇</span>`;
+        if (rank === 2) return `<span style="font-size:1.3rem;">🥈</span>`;
+        if (rank === 3) return `<span style="font-size:1.3rem;">🥉</span>`;
+        return `<span style="color:var(--text-secondary); font-weight:600;">${rank}</span>`;
+    };
+
+    const statusBadge = (score, alpha) => {
+        if (alpha > 3) return `<span class="badge badge-absen">Perlu Perhatian</span>`;
+        if (score >= 60) return `<span class="badge badge-hadir">Sangat Disiplin</span>`;
+        if (score >= 40) return `<span class="badge" style="background:rgba(245,158,11,0.15);color:#fbbf24;border-color:#fbbf24;">Cukup</span>`;
+        return `<span class="badge badge-absen">Kurang Disiplin</span>`;
+    };
+
+    tbody.innerHTML = rankData.map((r, idx) => `
+        <tr>
+            <td style="text-align:center;">${rankBadge(idx + 1)}</td>
+            <td><strong>${r.emp.name}</strong></td>
+            <td style="color:var(--text-secondary); font-size:0.82rem;">${r.extra.role || '-'}</td>
+            <td><span class="badge badge-hadir">${r.hadir}</span></td>
+            <td><span class="badge" style="background:rgba(245,158,11,0.15);color:#fbbf24;border-color:#fbbf24;">${r.terlambat}</span></td>
+            <td><span class="badge" style="background:rgba(99,102,241,0.15);color:#818cf8;border-color:#818cf8;">${r.izin}</span></td>
+            <td><span class="badge badge-absen">${r.alpha}</span></td>
+            <td>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <div style="flex:1;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;">
+                        <div style="width:${r.pctHadir}%;height:100%;background:${r.pctHadir>=80?'#10b981':r.pctHadir>=60?'#f59e0b':'#ef4444'};border-radius:3px;transition:width 0.5s;"></div>
+                    </div>
+                    <span style="font-size:0.8rem;font-weight:600;">${r.pctHadir}%</span>
+                </div>
+            </td>
+            <td><strong style="color:${r.score>=60?'#10b981':r.score>=40?'#f59e0b':'#ef4444'};">${r.score}</strong></td>
+            <td>${statusBadge(r.score, r.alpha)}</td>
+        </tr>
+    `).join('');
+}
+
+function generateAIInsight() {
+    const now = new Date();
+    const thisMonth = now.toISOString().substring(0, 7);
+    const monthName = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
+    const monthLogs = attendanceLogs.filter(l => l.date && l.date.startsWith(thisMonth));
+    const totalLogs = monthLogs.length;
+    const hadirLogs = monthLogs.filter(l => l.type !== "ABSEN");
+    const terlambatLogs = monthLogs.filter(l => l.status === "Terlambat");
+    const izinLogs = monthLogs.filter(l => l.type === "ABSEN");
+
+    // Find most late employee
+    const lateCounts = {};
+    terlambatLogs.forEach(l => {
+        const emp = employees.find(e => e.id === l.employee_id);
+        if (emp) lateCounts[emp.name] = (lateCounts[emp.name] || 0) + 1;
+    });
+    const mostLate = Object.entries(lateCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // Find most punctual employee (hadir, no late)
+    const punctualData = employees.map(emp => {
+        const empM = monthLogs.filter(l => l.employee_id === emp.id);
+        const hadir = empM.filter(l => l.type !== "ABSEN").length;
+        const late = empM.filter(l => l.status === "Terlambat").length;
+        return { name: emp.name, hadir, late };
+    }).filter(d => d.hadir > 0).sort((a, b) => a.late - b.late || b.hadir - a.hadir);
+
+    // Day of week most absences
+    const dayCount = {};
+    monthLogs.forEach(l => {
+        if (l.date) {
+            const day = new Date(l.date).toLocaleDateString('id-ID', { weekday: 'long' });
+            dayCount[day] = (dayCount[day] || 0) + 1;
+        }
+    });
+    const mostActiveDay = Object.entries(dayCount).sort((a, b) => b[1] - a[1])[0];
+
+    // Rate
+    const totalPossible = employees.length * 22;
+    const attendanceRate = totalPossible > 0 ? Math.round((hadirLogs.length / totalPossible) * 100) : 0;
+    const lateRate = hadirLogs.length > 0 ? Math.round((terlambatLogs.length / hadirLogs.length) * 100) : 0;
+
+    // Update panels
+    const summaryEl = document.getElementById("ai-summary");
+    const warningEl = document.getElementById("ai-warning");
+    const praiseEl = document.getElementById("ai-praise");
+    const recEl = document.getElementById("ai-recommendation");
+
+    if (!summaryEl) return;
+
+    if (totalLogs === 0) {
+        const msg = `<em style="color:var(--text-secondary);">Belum ada data presensi ${monthName}. Mulai lakukan presensi untuk melihat analisis.</em>`;
+        summaryEl.innerHTML = msg;
+        warningEl.innerHTML = msg;
+        praiseEl.innerHTML = msg;
+        recEl.innerHTML = msg;
+        return;
+    }
+
+    summaryEl.innerHTML = `
+        Bulan <strong>${monthName}</strong>: tercatat <strong>${hadirLogs.length}</strong> kehadiran dari ${employees.length} aparatur.
+        Tingkat kehadiran rata-rata <strong>${attendanceRate}%</strong>.
+        Terdapat <strong>${terlambatLogs.length}</strong> keterlambatan dan <strong>${izinLogs.length}</strong> izin.
+        ${mostActiveDay ? `Hari paling banyak kehadiran: <strong>${mostActiveDay[0]}</strong>.` : ''}
+    `;
+
+    warningEl.innerHTML = mostLate
+        ? `<strong>${mostLate[0]}</strong> mencatat keterlambatan terbanyak bulan ini sebanyak <strong>${mostLate[1]}x</strong>.
+           ${lateRate > 20 ? `Tingkat keterlambatan cukup tinggi (${lateRate}%). Perlu evaluasi.` : ''}`
+        : `<span style="color:#34d399;">✅ Tidak ada aparatur dengan keterlambatan berulang bulan ini. Sangat baik!</span>`;
+
+    praiseEl.innerHTML = punctualData.length > 0
+        ? `<strong>${punctualData[0].name}</strong> menjadi aparatur paling disiplin bulan ini dengan 
+           <strong>${punctualData[0].hadir} hari</strong> kehadiran dan <strong>${punctualData[0].late} keterlambatan</strong>.
+           🎉 Pertahankan kedisiplinan ini!`
+        : `<em>Belum cukup data untuk menentukan aparatur paling disiplin.</em>`;
+
+    const recs = [];
+    if (lateRate > 15) recs.push("⏰ Lakukan briefing pagi untuk meningkatkan kedisiplinan jam masuk.");
+    if (izinLogs.length > employees.length * 2) recs.push("📋 Tingkatnya izin perlu dievaluasi. Pastikan surat keterangan lengkap.");
+    if (attendanceRate < 80) recs.push("📊 Tingkat kehadiran di bawah 80%. Pertimbangkan evaluasi kebijakan kehadiran.");
+    if (recs.length === 0) recs.push("✅ Kondisi kehadiran aparatur bulan ini sangat baik. Pertahankan disiplin kerja!");
+
+    recEl.innerHTML = recs.join("<br>");
 }
