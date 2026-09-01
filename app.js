@@ -2688,8 +2688,9 @@ function getKategoriByScore(score) {
     if (score >= 0.91) return { kategori: 'Sangat Baik', persentase: 1.0 };
     if (score >= 0.81) return { kategori: 'Baik', persentase: 0.9 };
     if (score >= 0.71) return { kategori: 'Cukup', persentase: 0.7 };
-    if (score >= 0.61) return { kategori: 'Kurang', persentase: 0.4 };
-    return { kategori: 'Buruk', persentase: 0.1 };
+    if (score >= 0.40) return { kategori: 'Kurang', persentase: 0.4 };
+    if (score >= 0.10) return { kategori: 'Buruk', persentase: 0.1 };
+    return { kategori: 'Sangat Buruk', persentase: 0.0 };
 }
 
 async function loadTukinAdminData() {
