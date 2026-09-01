@@ -2631,3 +2631,313 @@ async function simpanRealisasi(matrikId, empId, bulan, tahun) {
         console.error(error);
     }
 }
+
+// ==========================================
+// MODUL DASHBOARD TUKIN ADMIN (TAHAP 13-16)
+// ==========================================
+
+let tukinDataMaster = [];
+let tukinPaguList = [];
+let tukinRulesList = [];
+
+async function initTukinAdminView() {
+    const d = new Date();
+    document.getElementById("tukin-admin-tahun").value = d.getFullYear().toString();
+    document.getElementById("tukin-admin-bulan").value = (d.getMonth() + 1).toString();
+    await fetchTukinMasterData();
+}
+
+async function fetchTukinMasterData() {
+    try {
+        const { data: pagu } = await supabaseClient.from('tukin_pagu').select('*');
+        if (pagu) tukinPaguList = pagu;
+        
+        const { data: rules } = await supabaseClient.from('tukin_rules').select('*');
+        if (rules) tukinRulesList = rules;
+    } catch (e) {
+        console.error("Gagal load master tukin", e);
+    }
+}
+
+function getPaguForJabatan(jabatan) {
+    if(!jabatan) return 0;
+    const lower = jabatan.toLowerCase();
+    
+    // Exact mapping logic based on standard
+    let mapped = 'Staf';
+    if(lower.includes('carik')) mapped = 'Carik';
+    else if(lower.includes('palapa') || lower.includes('pangripta') || lower.includes('tata laksana')) mapped = 'Palapa';
+    else if(lower.includes('danarta')) mapped = 'Danarta';
+    else if(lower.includes('jagabaya')) mapped = 'Jagabaya';
+    else if(lower.includes('ulu')) mapped = 'Ulu-ulu';
+    else if(lower.includes('kamituwa') || lower.includes('kemasyarakatan')) mapped = 'Kamituwa';
+    else if(lower.includes('dukuh') || lower.includes('kepala dusun')) mapped = 'Dukuh';
+    
+    const p = tukinPaguList.find(x => x.jabatan.toLowerCase() === mapped.toLowerCase());
+    return p ? p.nominal_pagu : 0;
+}
+
+function getKategoriByScore(score) {
+    // Score is 0.00 - 1.00
+    let match = tukinRulesList.find(r => score >= parseFloat(r.min_score) && score <= parseFloat(r.max_score));
+    if(!match && score > 1.0) match = tukinRulesList.find(r => r.max_score >= 1.0);
+    if(!match && score < 0) match = tukinRulesList.find(r => r.min_score <= 0.0);
+    
+    if(match) return match;
+    // Fallback if DB empty
+    if (score >= 0.91) return { kategori: 'Sangat Baik', persentase: 1.0 };
+    if (score >= 0.81) return { kategori: 'Baik', persentase: 0.9 };
+    if (score >= 0.71) return { kategori: 'Cukup', persentase: 0.7 };
+    if (score >= 0.61) return { kategori: 'Kurang', persentase: 0.4 };
+    return { kategori: 'Buruk', persentase: 0.1 };
+}
+
+async function loadTukinAdminData() {
+    const tahun = parseInt(document.getElementById("tukin-admin-tahun").value);
+    const bulan = parseInt(document.getElementById("tukin-admin-bulan").value);
+    
+    const tbody = document.getElementById("tukin-table-body");
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;">Mengkalkulasi Kinerja & Presensi...</td></tr>';
+    
+    try {
+        // 1. Ambil Log Presensi bulan tersebut
+        const paddedBulan = bulan.toString().padStart(2, '0');
+        const prefix = `${tahun}-${paddedBulan}-`;
+        
+        const { data: attLogs } = await supabaseClient
+            .from('attendance_logs')
+            .select('*')
+            .like('date', `${prefix}%`);
+            
+        // 2. Tentukan Total Hari Kerja dinamis
+        const uniqueDates = new Set();
+        (attLogs || []).forEach(l => uniqueDates.add(l.date));
+        const totalHariKerja = uniqueDates.size > 0 ? uniqueDates.size : 21; // fallback 21 if no logs
+        
+        // 3. Ambil Realisasi & Target Kinerja
+        const { data: realisasiAll } = await supabaseClient
+            .from('matrik_realisasi')
+            .select('*')
+            .eq('periode_bulan', bulan)
+            .eq('periode_tahun', tahun);
+            
+        const { data: targetAll } = await supabaseClient.from('matrik_target').select('*');
+        
+        tukinDataMaster = [];
+        let grandTotalTukin = 0;
+        let sumKinerja = 0;
+        let sumPresensi = 0;
+        let activeEmployeesCount = 0;
+
+        employees.forEach(emp => {
+            if (emp.role === 'admin') return; // Skip admin account for tukin
+            activeEmployeesCount++;
+            
+            // --- HITUNG PRESENSI ---
+            const myAtt = (attLogs || []).filter(l => l.employee_id === emp.id && l.status === 'Hadir');
+            const jumlahHadir = myAtt.length;
+            const presensiPersen = Math.min(1.0, (jumlahHadir / totalHariKerja));
+            
+            // --- HITUNG KINERJA ---
+            let mappedJabatan = emp.department;
+            if(mappedJabatan.toLowerCase() === 'kemasyarakatan') mappedJabatan = 'Kamituwa';
+            
+            const myTargets = (targetAll || []).filter(t => t.jabatan.toLowerCase().includes(mappedJabatan.toLowerCase()));
+            const myRealisasi = (realisasiAll || []).filter(r => r.employee_id === emp.id);
+            
+            let tTotal = 0;
+            let rTotal = 0;
+            
+            myTargets.forEach(t => {
+                let targetBulan = 0;
+                if(bulan === 1) targetBulan = t.target_jan;
+                else if(bulan === 2) targetBulan = t.target_feb;
+                else if(bulan === 3) targetBulan = t.target_mar;
+                else if(bulan === 4) targetBulan = t.target_apr;
+                else if(bulan === 5) targetBulan = t.target_mei;
+                else if(bulan === 6) targetBulan = t.target_jun;
+                else if(bulan === 7) targetBulan = t.target_jul;
+                else if(bulan === 8) targetBulan = t.target_ags;
+                else if(bulan === 9) targetBulan = t.target_sep;
+                else if(bulan === 10) targetBulan = t.target_okt;
+                else if(bulan === 11) targetBulan = t.target_nov;
+                else if(bulan === 12) targetBulan = t.target_des;
+                
+                targetBulan = targetBulan || 0;
+                const realRow = myRealisasi.find(r => r.matrik_target_id === t.id);
+                const realBulan = realRow ? parseFloat(realRow.realisasi) : 0;
+                
+                tTotal += targetBulan;
+                rTotal += (realBulan > targetBulan ? targetBulan : realBulan);
+            });
+            
+            const kinerjaPersen = tTotal > 0 ? (rTotal / tTotal) : 0;
+            
+            // --- HITUNG NILAI AKHIR (Bobot 60:40) ---
+            const BOBOT_KINERJA = 0.60;
+            const BOBOT_PRESENSI = 0.40;
+            
+            const nilaiKinerjaBerbobot = kinerjaPersen * BOBOT_KINERJA;
+            const nilaiPresensiBerbobot = presensiPersen * BOBOT_PRESENSI;
+            const nilaiAkhir = nilaiKinerjaBerbobot + nilaiPresensiBerbobot;
+            
+            // --- KONVERSI RUPIAH ---
+            const pagu = getPaguForJabatan(emp.department);
+            const kriteria = getKategoriByScore(nilaiAkhir);
+            
+            const tukinBruto = pagu * kriteria.persentase;
+            const sanksi = 0; // Default sanksi 0 untuk MVP
+            const tukinDiterima = tukinBruto - sanksi;
+            
+            sumKinerja += kinerjaPersen;
+            sumPresensi += presensiPersen;
+            grandTotalTukin += tukinDiterima;
+            
+            tukinDataMaster.push({
+                emp, 
+                tTotal, rTotal, kinerjaPersen, jumlahHadir, totalHariKerja, presensiPersen,
+                nilaiKinerjaBerbobot, nilaiPresensiBerbobot, nilaiAkhir,
+                kategori: kriteria.kategori,
+                persentaseDiterima: kriteria.persentase,
+                pagu, tukinBruto, sanksi, tukinDiterima
+            });
+        });
+        
+        // Update Stats
+        document.getElementById("tukin-stat-pamong").textContent = activeEmployeesCount;
+        document.getElementById("tukin-stat-kinerja").textContent = activeEmployeesCount > 0 ? (Math.round((sumKinerja/activeEmployeesCount)*100)) + '%' : '0%';
+        document.getElementById("tukin-stat-presensi").textContent = activeEmployeesCount > 0 ? (Math.round((sumPresensi/activeEmployeesCount)*100)) + '%' : '0%';
+        document.getElementById("tukin-stat-total").textContent = 'Rp ' + grandTotalTukin.toLocaleString('id-ID');
+        
+        // Render Table
+        let html = '';
+        tukinDataMaster.sort((a,b) => b.nilaiAkhir - a.nilaiAkhir).forEach((row, i) => {
+            html += `
+                <tr>
+                    <td><strong>${row.emp.name}</strong></td>
+                    <td>${row.emp.department}</td>
+                    <td><span class="badge badge-primary">${Math.round(row.kinerjaPersen*100)}%</span></td>
+                    <td><span class="badge badge-success">${Math.round(row.presensiPersen*100)}%</span></td>
+                    <td><strong>${(row.nilaiAkhir*100).toFixed(1)}%</strong></td>
+                    <td>${row.kategori}</td>
+                    <td>Rp ${row.pagu.toLocaleString('id-ID')}</td>
+                    <td>${Math.round(row.persentaseDiterima*100)}%</td>
+                    <td>Rp ${row.sanksi.toLocaleString('id-ID')}</td>
+                    <td style="color:var(--success); font-weight:bold;">Rp ${row.tukinDiterima.toLocaleString('id-ID')}</td>
+                    <td>
+                        <button class="btn btn-secondary" onclick="showTukinDetail(${i})" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">Detail</button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        if (tukinDataMaster.length === 0) html = '<tr><td colspan="11" style="text-align:center;">Tidak ada data pamong.</td></tr>';
+        tbody.innerHTML = html;
+        
+    } catch (e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:var(--danger);">Gagal mengkalkulasi Tukin. Periksa koneksi atau console.</td></tr>';
+    }
+}
+
+function showTukinDetail(index) {
+    const d = tukinDataMaster[index];
+    if(!d) return;
+    
+    const content = `
+        <div style="display:flex; justify-content:space-between; margin-bottom: 1rem;">
+            <div>
+                <h4 style="color:white; margin:0;">${d.emp.name}</h4>
+                <div style="font-size:0.8rem;">${d.emp.department}</div>
+            </div>
+            <div style="text-align:right;">
+                <h4 style="color:var(--primary); margin:0;">NILAI AKHIR: ${(d.nilaiAkhir*100).toFixed(2)}%</h4>
+                <div style="font-size:0.8rem; color:var(--success);">Kategori: ${d.kategori}</div>
+            </div>
+        </div>
+        
+        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+            <div style="margin-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:0.5rem;">
+                <strong style="color:white;">A. CAPAIAN KINERJA (BOBOT 60%)</strong><br>
+                Realisasi / Target: ${d.rTotal} / ${d.tTotal}<br>
+                Capaian Kotor: ${(d.kinerjaPersen*100).toFixed(2)}%<br>
+                <strong>Kinerja Berbobot: ${(d.kinerjaPersen*100).toFixed(2)}% × 60% = <span style="color:var(--primary)">${(d.nilaiKinerjaBerbobot*100).toFixed(2)}%</span></strong>
+            </div>
+            
+            <div style="margin-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:0.5rem;">
+                <strong style="color:white;">B. PRESENSI (BOBOT 40%)</strong><br>
+                Hadir / Hari Kerja: ${d.jumlahHadir} / ${d.totalHariKerja} hari<br>
+                Persentase Kehadiran: ${(d.presensiPersen*100).toFixed(2)}%<br>
+                <strong>Presensi Berbobot: ${(d.presensiPersen*100).toFixed(2)}% × 40% = <span style="color:var(--success)">${(d.nilaiPresensiBerbobot*100).toFixed(2)}%</span></strong>
+            </div>
+            
+            <div style="margin-bottom:0.5rem; padding-bottom:0.5rem;">
+                <strong style="color:white;">C. TUNJANGAN KINERJA (TUKIN)</strong><br>
+                Pagu Jabatan: Rp ${d.pagu.toLocaleString('id-ID')}<br>
+                Hak Diterima (${d.kategori}): ${Math.round(d.persentaseDiterima*100)}%<br>
+                Tukin Bruto: Rp ${d.tukinBruto.toLocaleString('id-ID')}<br>
+                Sanksi/Potongan: Rp ${d.sanksi.toLocaleString('id-ID')}<br>
+                <div style="margin-top:0.5rem; font-size:1.1rem;">
+                    <strong>Tukin Bersih: <span style="color:var(--success)">Rp ${d.tukinDiterima.toLocaleString('id-ID')}</span></strong>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById("tukin-detail-content").innerHTML = content;
+    document.getElementById("modal-tukin-detail").style.display = "flex";
+}
+
+function exportTukinExcel() {
+    if (tukinDataMaster.length === 0) {
+        showToast("Hitung data terlebih dahulu sebelum export!", "warning");
+        return;
+    }
+    
+    const tahun = document.getElementById("tukin-admin-tahun").value;
+    const bulan = document.getElementById("tukin-admin-bulan").value;
+    const namaBulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][bulan-1];
+    
+    const dataToExport = tukinDataMaster.map(r => ({
+        "Nama Pegawai": r.emp.name,
+        "Jabatan": r.emp.department,
+        "Target Kegiatan": r.tTotal,
+        "Realisasi Kegiatan": r.rTotal,
+        "Capaian Kinerja (%)": (r.kinerjaPersen * 100).toFixed(2) + "%",
+        "Hari Kerja": r.totalHariKerja,
+        "Hadir": r.jumlahHadir,
+        "Capaian Presensi (%)": (r.presensiPersen * 100).toFixed(2) + "%",
+        "Kinerja Berbobot (60%)": (r.nilaiKinerjaBerbobot * 100).toFixed(2) + "%",
+        "Presensi Berbobot (40%)": (r.nilaiPresensiBerbobot * 100).toFixed(2) + "%",
+        "Nilai Akhir": (r.nilaiAkhir * 100).toFixed(2) + "%",
+        "Kriteria": r.kategori,
+        "Pagu Tukin": r.pagu,
+        "Persentase Hak": (r.persentaseDiterima * 100) + "%",
+        "Sanksi": r.sanksi,
+        "TUKIN DITERIMA": r.tukinDiterima
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    
+    // Add title rows
+    XLSX.utils.sheet_add_aoa(ws, [
+        ["REKAPITULASI TUNJANGAN KINERJA APARATUR"],
+        ["KALURAHAN KALIDENGEN"],
+        [`PERIODE: ${namaBulan.toUpperCase()} ${tahun}`],
+        []
+    ], { origin: "A1" });
+    
+    // Shift data down by 4 rows (already handled by json_to_sheet if we do it differently, let's just make a new sheet)
+    const ws2 = XLSX.utils.aoa_to_sheet([
+        ["REKAPITULASI TUNJANGAN KINERJA APARATUR"],
+        ["KALURAHAN KALIDENGEN"],
+        [`PERIODE: ${namaBulan.toUpperCase()} ${tahun}`],
+        []
+    ]);
+    XLSX.utils.sheet_add_json(ws2, dataToExport, { origin: "A5" });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws2, "Rekap Tukin");
+
+    XLSX.writeFile(wb, `Rekap_Tukin_${namaBulan}_${tahun}.xlsx`);
+}
