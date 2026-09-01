@@ -821,3 +821,35 @@ body {
 @media (max-width: 900px) { .header-nav { display: none; } }
 
 .app-container { padding-top: 80px; }
+
+/* FOOTER */
+.app-footer {
+    background: rgba(15, 23, 42, 0.6);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 2.5rem;
+    margin-top: 3rem;
+    margin-bottom: 2rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+.footer-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+.footer-section p { margin-bottom: 0.5rem; }
+.footer-section a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.3s;
+}
+.footer-section a:hover { color: var(--primary); }
+.footer-bottom {
+    text-align: center;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 1.5rem;
+    font-size: 0.8rem;
+}
+.table { min-width: 700px; } /* Ensures mobile table scrolling */
