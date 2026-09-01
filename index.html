@@ -629,6 +629,13 @@
                                 <input type="number" class="form-input" id="config-radius">
                             </div>
                             <button class="btn btn-primary" onclick="saveOfficeConfig()">Simpan Konfigurasi</button>
+                            
+                            <hr style="border:0; border-top: 1px solid rgba(255,255,255,0.1); margin: 2rem 0;">
+                            <h3 style="font-size: 1rem; margin-bottom: 1rem; color: #fff;">Manajemen Penyimpanan Database</h3>
+                            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                                Menghapus data foto presensi (Selfie/Bukti WFH) yang umurnya lebih dari 30 hari untuk menghemat kapasitas database. Data teks (jam absen & riwayat) akan tetap aman, hanya foto saja yang dikosongkan.
+                            </p>
+                            <button class="btn" style="background: var(--danger); color: white;" onclick="cleanupOldPhotos()">🗑️ Bersihkan Foto Lama (> 30 Hari)</button>
                         </div>
                     </div>
                 </div>

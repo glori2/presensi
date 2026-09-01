@@ -2225,3 +2225,49 @@ function generateAIInsight() {
 
     recEl.innerHTML = recs.join("<br>");
 }
+
+// Cleanup Old Photos
+async function cleanupOldPhotos() {
+    if (!isCurrentUserAdmin()) return;
+
+    if (!confirm("Yakin ingin menghapus semua data foto yang usianya lebih dari 30 hari? Proses ini tidak bisa dibatalkan.")) {
+        return;
+    }
+
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 30);
+    const cutoffStr = cutoffDate.toISOString().split("T")[0];
+
+    // Find logs in memory
+    const targetLogs = attendanceLogs.filter(l => l.date < cutoffStr && l.photo_data && l.photo_data.length > 50);
+
+    if (targetLogs.length === 0) {
+        showToast("Tidak ada foto lama (> 30 hari) yang perlu dibersihkan.", "success");
+        return;
+    }
+
+    showToast(`Memproses penghapusan ${targetLogs.length} foto lama...`, "warning");
+
+    let successCount = 0;
+    if (supabaseClient) {
+        for (const log of targetLogs) {
+            try {
+                const { error } = await supabaseClient.from('attendance_logs').update({ photo_data: "" }).eq('id', log.id);
+                if (!error) {
+                    log.photo_data = ""; // Update locally
+                    successCount++;
+                }
+            } catch(e) {
+                console.error("Gagal hapus foto:", e);
+            }
+        }
+    }
+
+    localStorage.setItem("apresi_logs", JSON.stringify(attendanceLogs));
+    
+    if (successCount > 0) {
+        showToast(`✅ Berhasil menghapus ${successCount} data foto lama! Database lebih lega.`, "success");
+    } else {
+        showToast("Gagal menghapus foto, pastikan koneksi internet stabil.", "error");
+    }
+}
