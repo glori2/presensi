@@ -1518,19 +1518,21 @@ function renderPublicDashboard() {
 
         if (log) {
             if (log.type === "WFO") {
-                statusText = "Di Kantor";
-                statusClass = "badge-wfo-glow";
+                statusText = log.check_out_time ? "Selesai Kerja" : "Di Kantor";
+                statusClass = log.check_out_time ? "badge-wfo-glow" : "badge-wfo-glow";
                 detailHtml = `
-                    <p style="font-size: 0.75rem; color: var(--success); font-weight:600;">Masuk: ${log.check_in_time}</p>
+                    <p style="font-size: 0.75rem; color: var(--success); font-weight:600; margin-bottom: 2px;">Masuk: ${log.check_in_time} WIB</p>
+                    ${log.check_out_time ? `<p style="font-size: 0.75rem; color: var(--primary); font-weight:600; margin-bottom: 2px;">Pulang: ${log.check_out_time} WIB</p>` : ''}
                     <p style="font-size: 0.7rem; color: var(--text-secondary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">Status: ${log.status}</p>
                 `;
             } else if (log.type === "WFH") {
-                statusText = "Dinas Luar";
+                statusText = log.check_out_time ? "Selesai Kerja" : "Dinas Luar";
                 statusClass = "badge-wfh-glow";
                 const locMatch = log.detail.match(/Lokasi:\s*([^)]+)/);
                 const locName = locMatch ? locMatch[1] : "Dinas Luar";
                 detailHtml = `
-                    <p style="font-size: 0.75rem; color: #818cf8; font-weight:600;">Masuk: ${log.check_in_time}</p>
+                    <p style="font-size: 0.75rem; color: #818cf8; font-weight:600; margin-bottom: 2px;">Masuk: ${log.check_in_time} WIB</p>
+                    ${log.check_out_time ? `<p style="font-size: 0.75rem; color: var(--primary); font-weight:600; margin-bottom: 2px;">Pulang: ${log.check_out_time} WIB</p>` : ''}
                     <p style="font-size: 0.7rem; color: var(--text-secondary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${locName}">Tempat: ${locName}</p>
                 `;
             } else if (log.type === "ABSEN") {
