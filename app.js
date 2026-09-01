@@ -26,7 +26,7 @@ let employees = [
 ];
 let attendanceLogs = [];
 let dailyJournals = [];
-let currentEmployeeId = "emp-1";
+let currentEmployeeId = null;
 let clockInterval = null;
 let webcamStream = null;
 let editingEmployeeId = null;
@@ -141,9 +141,9 @@ async function loadInitialData() {
         }
     }
 
-    // Set active user
-    if (!employees.some(e => e.id === currentEmployeeId)) {
-        currentEmployeeId = employees[0].id;
+    // Removed auto-select so user stays "unauthenticated" until they pick an account
+    if (currentEmployeeId && !employees.some(e => e.id === currentEmployeeId)) {
+        currentEmployeeId = null;
     }
 }
 
@@ -185,6 +185,11 @@ function switchView(viewName) {
     stopCameraStream();
 
     if (viewName === 'admin') {
+        if (!currentEmployeeId) {
+            showToast("Silakan pilih akun pamong terlebih dahulu!", "warning");
+            switchView('public');
+            return;
+        }
         if (!isCurrentUserAdmin()) {
             showToast("Akses ditolak! Menu Admin hanya untuk Kepala Kantor / Admin.", "error");
             switchView('public');
@@ -212,6 +217,10 @@ function switchView(viewName) {
         document.getElementById("welcome-subtext").textContent = "Monitor status kehadiran seluruh aparatur hari ini.";
         renderPublicDashboard();
     } else if (viewName === "employee") {
+        if (!currentEmployeeId) {
+            showToast("Silakan pilih akun pamong dari menu dropdown di atas!", "warning");
+            return;
+        }
         document.getElementById("view-employee").classList.add("active");
         document.getElementById("nav-employee").classList.add("active");
         document.getElementById("welcome-message").textContent = `Selamat Datang, ${employee.name}!`;
@@ -220,6 +229,10 @@ function switchView(viewName) {
         // Reset subtab selectors
         document.querySelector('input[name="emp_subtab"][value="presensi"]').checked = true;
     } else if (viewName === "profile") {
+        if (!currentEmployeeId) {
+            showToast("Silakan pilih akun pamong dari menu dropdown di atas!", "warning");
+            return;
+        }
         document.getElementById("view-profile").classList.add("active");
         document.getElementById("nav-profile").classList.add("active");
         document.getElementById("welcome-message").textContent = "Profil Saya";
@@ -298,17 +311,27 @@ function switchAdminSubtab(tabName) {
 
 // User Profile management
 function getCurrentEmployee() {
-    return employees.find(emp => emp.id === currentEmployeeId) || employees[0];
+    return employees.find(emp => emp.id === currentEmployeeId) || null;
 }
 
 function updateUserProfileUI() {
     const current = getCurrentEmployee();
+    const adminNav = document.getElementById("nav-admin");
+    const avatarEl = document.getElementById("avatar-initial");
+
+    if (!current) {
+        document.getElementById("profile-name").textContent = "Belum Login";
+        document.getElementById("profile-role").textContent = "-";
+        avatarEl.textContent = "?";
+        adminNav.style.display = "none";
+        return;
+    }
+
     const extra = parseEmployeeExtra(current);
     document.getElementById("profile-name").textContent = current.name;
     document.getElementById("profile-role").textContent = extra.role;
 
     const initials = current.name.split(" ").map(n => n[0]).slice(0,2).join("").toUpperCase();
-    const avatarEl = document.getElementById("avatar-initial");
     
     if (current.avatar_url) {
         avatarEl.innerHTML = `<img src="${current.avatar_url}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
@@ -316,7 +339,6 @@ function updateUserProfileUI() {
         avatarEl.textContent = initials;
     }
 
-    const adminNav = document.getElementById("nav-admin");
     if (isCurrentUserAdmin()) {
         adminNav.style.display = "block";
     } else {
@@ -380,7 +402,7 @@ function injectEmployeeSelector() {
     const selector = document.getElementById("demo-user-select");
     if (!selector) return;
 
-    let optionsHtml = "";
+    let optionsHtml = `<option value="" disabled ${!currentEmployeeId ? 'selected' : ''}>-- Pilih Akun Pamong --</option>`;
     employees.forEach(emp => {
         const extra = parseEmployeeExtra(emp);
         optionsHtml += `<option value="${emp.id}" ${emp.id === currentEmployeeId ? 'selected' : ''}>${emp.name} (${extra.role})</option>`;
