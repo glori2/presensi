@@ -2373,3 +2373,261 @@ async function cleanupOldPhotos() {
         showToast("Gagal menghapus foto, pastikan koneksi internet stabil.", "error");
     }
 }
+
+// ==========================================
+// MODUL KINERJA & TUKIN (TAHAP 4, 6, 7)
+// ==========================================
+
+let matrikTargets = [];
+let matrikRealisasi = [];
+let currentMatrikJabatan = "";
+
+async function initMatrikView() {
+    // Tampilkan filter pamong hanya jika admin
+    const filterWrapper = document.getElementById("filter-pamong-wrapper");
+    const selectPamong = document.getElementById("matrik-pamong");
+    
+    if (isCurrentUserAdmin()) {
+        filterWrapper.style.display = "block";
+        selectPamong.innerHTML = '<option value="">-- Semua / Pilih Pamong --</option>';
+        employees.forEach(emp => {
+            if (emp.role !== 'admin') {
+                selectPamong.innerHTML += `<option value="${emp.id}">${emp.name} (${emp.department})</option>`;
+            }
+        });
+    } else {
+        filterWrapper.style.display = "none";
+    }
+
+    // Default bulan ini
+    const d = new Date();
+    document.getElementById("matrik-tahun").value = d.getFullYear().toString();
+    document.getElementById("matrik-bulan").value = (d.getMonth() + 1).toString();
+    
+    await loadMatrikData();
+}
+
+async function loadMatrikData() {
+    const contentArea = document.getElementById("matrik-content-area");
+    contentArea.innerHTML = '<div style="text-align: center; padding: 2rem;">Memuat data...</div>';
+    
+    let empId = currentEmployeeId;
+    if (isCurrentUserAdmin()) {
+        const selected = document.getElementById("matrik-pamong").value;
+        if (selected) empId = selected;
+    }
+    
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) {
+        contentArea.innerHTML = '<div style="text-align: center; padding: 2rem;">Silakan pilih akun pamong.</div>';
+        return;
+    }
+
+    const tahun = parseInt(document.getElementById("matrik-tahun").value);
+    const bulan = parseInt(document.getElementById("matrik-bulan").value);
+    
+    currentMatrikJabatan = emp.department; // Menggunakan departemen sebagai jabatan (Carik, Danarta, dll)
+    if(currentMatrikJabatan.toLowerCase() === 'kemasyarakatan') currentMatrikJabatan = 'Kamituwa'; // Koreksi mapping jabatan
+
+    try {
+        // 1. Fetch Target
+        const { data: targets, error: errTarget } = await supabaseClient
+            .from('matrik_target')
+            .select('*')
+            .ilike('jabatan', `%${currentMatrikJabatan}%`)
+            .order('nomor_kegiatan', { ascending: true });
+            
+        if (errTarget) throw errTarget;
+        
+        // 2. Fetch Realisasi
+        const { data: realisasi, error: errReal } = await supabaseClient
+            .from('matrik_realisasi')
+            .select('*')
+            .eq('employee_id', emp.id)
+            .eq('periode_bulan', bulan)
+            .eq('periode_tahun', tahun);
+            
+        if (errReal) throw errReal;
+        
+        matrikTargets = targets || [];
+        matrikRealisasi = realisasi || [];
+        
+        renderMatrikTable(emp, bulan, tahun);
+        
+    } catch (e) {
+        console.error(e);
+        contentArea.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger);">Gagal memuat data matrik.</div>';
+    }
+}
+
+function renderMatrikTable(emp, bulan, tahun) {
+    const contentArea = document.getElementById("matrik-content-area");
+    const bulanStr = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'][bulan-1];
+    const monthKey = `target_${bulanStr.toLowerCase()}`;
+    
+    if (matrikTargets.length === 0) {
+        contentArea.innerHTML = `<div style="text-align: center; padding: 2rem;">Data target belum tersedia untuk jabatan ${currentMatrikJabatan}.</div>`;
+        return;
+    }
+
+    let totalTargetBulan = 0;
+    let totalRealisasiBulan = 0;
+
+    let html = `
+        <div style="margin-bottom: 1rem;">
+            <h3 style="color: white; margin-bottom: 0.5rem;">Matrik Kinerja: ${emp.name} (${currentMatrikJabatan})</h3>
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">Periode: ${bulanStr} ${tahun}</p>
+        </div>
+        <div class="table-container">
+            <table class="table" style="min-width: 900px;">
+                <thead>
+                    <tr>
+                        <th width="5%">No</th>
+                        <th width="35%">Rencana Kegiatan</th>
+                        <th width="8%">Target<br>Bulan Ini</th>
+                        <th width="10%">Satuan</th>
+                        <th width="10%">Realisasi</th>
+                        <th width="10%">Capaian %</th>
+                        <th width="22%">Bukti / Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    matrikTargets.forEach((t, i) => {
+        // Find mapped realisasi
+        const real = matrikRealisasi.find(r => r.matrik_target_id === t.id);
+        const realisasiVal = real ? real.realisasi : 0;
+        
+        let targetBulan = 0;
+        if(bulan === 1) targetBulan = t.target_jan;
+        else if(bulan === 2) targetBulan = t.target_feb;
+        else if(bulan === 3) targetBulan = t.target_mar;
+        else if(bulan === 4) targetBulan = t.target_apr;
+        else if(bulan === 5) targetBulan = t.target_mei;
+        else if(bulan === 6) targetBulan = t.target_jun;
+        else if(bulan === 7) targetBulan = t.target_jul;
+        else if(bulan === 8) targetBulan = t.target_ags;
+        else if(bulan === 9) targetBulan = t.target_sep;
+        else if(bulan === 10) targetBulan = t.target_okt;
+        else if(bulan === 11) targetBulan = t.target_nov;
+        else if(bulan === 12) targetBulan = t.target_des;
+        
+        targetBulan = targetBulan || 0;
+        
+        // Accumulate for total capaian
+        totalTargetBulan += targetBulan;
+        totalRealisasiBulan += (realisasiVal > targetBulan ? targetBulan : realisasiVal); // Cap at target for percentage calculation
+        
+        let capaianPersen = targetBulan > 0 ? ((realisasiVal / targetBulan) * 100).toFixed(1) : (realisasiVal > 0 ? 100 : 0);
+        
+        // Input controls
+        const inputHtml = `<input type="number" min="0" max="${targetBulan}" class="form-input" id="realisasi_${t.id}" value="${realisasiVal}" style="padding: 0.3rem; width: 60px; text-align: center;">`;
+        const actionHtml = `
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <input type="file" id="bukti_${t.id}" accept="image/*,.pdf" style="width: 90px; font-size: 0.7rem;">
+                <button class="btn btn-primary" onclick="simpanRealisasi('${t.id}', '${emp.id}', ${bulan}, ${tahun})" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">Simpan</button>
+            </div>
+            ${real && real.bukti_url ? `<a href="${real.bukti_url}" target="_blank" style="font-size: 0.75rem; color: var(--primary); display: block; margin-top: 4px;">Lihat Bukti Tersimpan</a>` : ''}
+        `;
+
+        html += `
+            <tr>
+                <td>${t.nomor_kegiatan}</td>
+                <td style="white-space: normal; line-height: 1.4;">${t.deskripsi}</td>
+                <td style="text-align: center; font-weight: bold; color: var(--primary);">${targetBulan}</td>
+                <td>${t.satuan}</td>
+                <td>${inputHtml}</td>
+                <td style="font-weight: bold;">${capaianPersen}%</td>
+                <td>${actionHtml}</td>
+            </tr>
+        `;
+    });
+
+    let totalCapaianKinerja = totalTargetBulan > 0 ? ((totalRealisasiBulan / totalTargetBulan) * 100).toFixed(2) : 0;
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top: 1.5rem; padding: 1.5rem; background: rgba(21, 128, 61, 0.1); border-radius: 8px; border: 1px solid rgba(21, 128, 61, 0.2);">
+            <h4 style="color: var(--success); margin-bottom: 0.5rem;">Ringkasan Capaian Laporan Kinerja</h4>
+            <div style="display: flex; gap: 2rem;">
+                <div>Total Target Bulanan: <strong>${totalTargetBulan}</strong></div>
+                <div>Total Realisasi Diterima: <strong>${totalRealisasiBulan}</strong></div>
+                <div>Capaian Kinerja (Kotor): <strong style="font-size: 1.2rem; color: #fff;">${totalCapaianKinerja}%</strong></div>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">*Capaian di atas akan dikalikan dengan Bobot 60% dan diakumulasikan dengan Bobot Presensi 40% pada akhir bulan.</p>
+        </div>
+    `;
+
+    contentArea.innerHTML = html;
+}
+
+async function simpanRealisasi(matrikId, empId, bulan, tahun) {
+    const inputRealisasi = document.getElementById(`realisasi_${matrikId}`).value;
+    const inputFile = document.getElementById(`bukti_${matrikId}`).files[0];
+    const realisasiVal = parseFloat(inputRealisasi) || 0;
+
+    showToast("Menyimpan realisasi...", "warning");
+
+    let buktiUrl = "";
+    
+    // Fallback: Jika Storage gagal dibuat, kita kompres jadi Base64 saja (seperti fitur Absen)
+    if (inputFile) {
+        try {
+            buktiUrl = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (inputFile.type.startsWith('image/')) {
+                        compressImage(e.target.result, 800, 800, 0.6, function(compressedStr) {
+                            resolve(compressedStr);
+                        });
+                    } else {
+                        resolve(e.target.result); // PDF or other
+                    }
+                };
+                reader.readAsDataURL(inputFile);
+            });
+        } catch(e) {
+            console.error("Gagal kompresi file", e);
+        }
+    } else {
+        // Gunakan URL lama jika tidak upload baru
+        const existing = matrikRealisasi.find(r => r.matrik_target_id === matrikId);
+        if (existing) buktiUrl = existing.bukti_url;
+    }
+
+    try {
+        const payload = {
+            employee_id: empId,
+            matrik_target_id: matrikId,
+            periode_bulan: bulan,
+            periode_tahun: tahun,
+            realisasi: realisasiVal,
+            bukti_url: buktiUrl,
+            user_input: empId
+        };
+
+        // Check if exists
+        const existing = matrikRealisasi.find(r => r.matrik_target_id === matrikId);
+        if (existing) {
+            const { error } = await supabaseClient
+                .from('matrik_realisasi')
+                .update(payload)
+                .eq('id', existing.id);
+            if (error) throw error;
+        } else {
+            const { error } = await supabaseClient
+                .from('matrik_realisasi')
+                .insert([payload]);
+            if (error) throw error;
+        }
+
+        showToast("Realisasi berhasil disimpan!", "success");
+        loadMatrikData(); // Refresh UI
+    } catch (error) {
+        showToast("Gagal menyimpan: " + error.message, "error");
+        console.error(error);
+    }
+}
