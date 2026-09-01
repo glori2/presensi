@@ -639,19 +639,13 @@ function checkTodayAttendanceState() {
             btnCheckout.style.display = "none";
         } else {
             const outStartMins  = timeToMinutes(timeConfig.outStart);
-            const outEndMins    = timeToMinutes(timeConfig.outEnd);
-            const isCheckoutOpen = nowMins >= outStartMins && nowMins <= outEndMins;
 
             btnCheckin.style.display  = "none";
             btnCheckout.style.display = "block";
 
-            if (!isCheckoutOpen) {
-                btnCheckout.disabled = true;
-                btnCheckout.textContent = (nowMins < outStartMins) ? "⏳ Belum Waktunya Pulang" : "❌ Waktu Check-Out Selesai";
-            } else {
-                btnCheckout.disabled = false;
-                btnCheckout.textContent = "Check-Out Presensi";
-            }
+            // Allow check-out anytime after check-in, just label it if it's early
+            btnCheckout.disabled = false;
+            btnCheckout.textContent = (nowMins < outStartMins) ? "⏳ Pulang Cepat (Lebih Awal)" : "Check-Out Presensi";
         }
     } else {
         const inStartMins = timeToMinutes(timeConfig.inStart);
@@ -664,14 +658,11 @@ function checkTodayAttendanceState() {
 
         const type = document.querySelector('input[name="presence_type"]:checked')?.value || "WFO";
         
-        if (type === "WFO" && !isCheckinOpen) {
+        const isEarly = nowMins < inStartMins;
+        if (type === "WFO" && isEarly) {
             btnCheckin.disabled = true;
-            if (nowMins < inStartMins) {
-                const remain = inStartMins - nowMins;
-                btnCheckin.textContent = `⏳ Check-In Dibuka Pukul ${timeConfig.inStart} (${remain} menit lagi)`;
-            } else {
-                btnCheckin.textContent = `❌ Batas Check-In: ${timeConfig.inEnd}`;
-            }
+            const remain = inStartMins - nowMins;
+            btnCheckin.textContent = `⏳ Check-In Dibuka Pukul ${timeConfig.inStart} (${remain} menit lagi)`;
         } else {
             btnCheckin.disabled = false;
             btnCheckin.textContent = type === "ABSEN" ? "Kirim Permohonan Izin / Cuti" : "Check-In Presensi";
@@ -894,9 +885,12 @@ async function performCheckOut() {
     if (diffMinutes < 0) { diffHours -= 1; diffMinutes += 60; }
 
     // Deduct break time
-    let breakMinutes = 30; // default Senin-Kamis
+    let breakMinutes = 0; 
     if (timeConfig.breakStart && timeConfig.breakEnd) {
-        breakMinutes = timeToMinutes(timeConfig.breakEnd) - timeToMinutes(timeConfig.breakStart);
+        const breakStartMins = timeToMinutes(timeConfig.breakStart);
+        if (nowMins >= breakStartMins) {
+            breakMinutes = timeToMinutes(timeConfig.breakEnd) - breakStartMins;
+        }
     }
     const totalMins   = diffHours * 60 + diffMinutes - breakMinutes;
     const workingHours = parseFloat(Math.max(0, totalMins / 60).toFixed(1));
@@ -942,6 +936,13 @@ async function savePresenceLog(type, checkIn, checkOut, detail, status, photoDat
     const employee = getCurrentEmployee();
     const today = new Date().toISOString().split("T")[0];
 
+    let finalCheckOut = checkOut;
+    let finalWorkingHours = 0;
+    if (type === "WFH" || type === "ABSEN") {
+        finalCheckOut = "15:45"; // Auto-complete for offsite
+        finalWorkingHours = 8;
+    }
+
     const newLog = {
         id: "log-" + Date.now(),
         employee_id: employee.id,
@@ -949,10 +950,10 @@ async function savePresenceLog(type, checkIn, checkOut, detail, status, photoDat
         type: type,
         date: today,
         check_in_time: checkIn,
-        check_out_time: checkOut,
+        check_out_time: finalCheckOut,
         status: status,
         detail: detail,
-        working_hours: 0,
+        working_hours: finalWorkingHours,
         photo_data: photoData
     };
 
@@ -1145,8 +1146,10 @@ function renderTukinCalculation() {
         const lateDays = empLogs.filter(l => l.status === "Terlambat").length;
         const totalDuration = empJournals.reduce((sum, j) => sum + (j.duration || 0), 0);
 
-        // Attendance ratio (based on standard 22 work days/month)
-        const attendanceRate = Math.min((presentDays / 22), 1);
+                // Calculate elapsed days
+        const uniqueDates = new Set(attendanceLogs.filter(l => l.date).map(l => l.date));
+        const totalWorkingDays = uniqueDates.size > 0 ? uniqueDates.size : 1;
+        const attendanceRate = Math.min((presentDays / totalWorkingDays), 1);
         
         // Journal score (standard target 80 hours work/month)
         const journalRate = Math.min((totalDuration / 80), 1);
@@ -1190,7 +1193,10 @@ function exportTukinExcel() {
             const lateDays = empLogs.filter(l => l.status === "Terlambat").length;
             const totalDuration = empJournals.reduce((sum, j) => sum + (j.duration || 0), 0);
 
-            const attendanceRate = Math.min((presentDays / 22), 1);
+                    
+        const uniqueDates = new Set(attendanceLogs.filter(l => l.date).map(l => l.date));
+        const totalWorkingDays = uniqueDates.size > 0 ? uniqueDates.size : 1;
+        const attendanceRate = Math.min((presentDays / totalWorkingDays), 1);
             const journalRate = Math.min((totalDuration / 80), 1);
 
             const attendanceComponent = baseTukin * 0.70 * attendanceRate;
@@ -2075,9 +2081,8 @@ function renderDisciplineRanking() {
         ? attendanceLogs
         : attendanceLogs.filter(l => l.date && l.date.startsWith(monthFilter));
 
-    const totalWorkingDays = monthFilter === "all"
-        ? 22  // approx per month x 1 (baseline)
-        : 22;
+    const uniqueDates = new Set(filteredLogs.map(l => l.date));
+    const totalWorkingDays = uniqueDates.size > 0 ? uniqueDates.size : 1;
 
     const rankData = employees.map(emp => {
         const empLogs = filteredLogs.filter(l => l.employee_id === emp.id);
@@ -2171,7 +2176,9 @@ function generateAIInsight() {
     const mostActiveDay = Object.entries(dayCount).sort((a, b) => b[1] - a[1])[0];
 
     // Rate
-    const totalPossible = employees.length * 22;
+    const uniqueDates = new Set(monthLogs.map(l => l.date));
+    const daysCount = uniqueDates.size > 0 ? uniqueDates.size : 1;
+    const totalPossible = employees.length * daysCount;
     const attendanceRate = totalPossible > 0 ? Math.round((hadirLogs.length / totalPossible) * 100) : 0;
     const lateRate = hadirLogs.length > 0 ? Math.round((terlambatLogs.length / hadirLogs.length) * 100) : 0;
 
