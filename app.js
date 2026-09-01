@@ -385,17 +385,59 @@ function packEmployeeExtra(role, gender, phone, address, privilege = "user") {
 
 // Attachment File Upload Helper
 let currentAttachmentData = null;
+// Image Compression Helper
+function compressImage(base64Str, maxWidth, maxHeight, quality, callback) {
+    const img = new Image();
+    img.onload = function() {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+            if (width > maxWidth) {
+                height = Math.round(height *= maxWidth / width);
+                width = maxWidth;
+            }
+        } else {
+            if (height > maxHeight) {
+                width = Math.round(width *= maxHeight / height);
+                height = maxHeight;
+            }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        callback(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = function() { callback(base64Str); };
+    img.src = base64Str;
+}
+
 function handleAttachmentUpload(event, type) {
     const file = event.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        currentAttachmentData = e.target.result; // Base64 data url
-        document.getElementById(`${type}-attachment-data`).value = e.target.result;
-        showToast("File lampiran berhasil diunggah!", "success");
-    };
-    reader.readAsDataURL(file);
+    // Check if it's an image
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            compressImage(e.target.result, 800, 800, 0.6, function(compressedStr) {
+                currentAttachmentData = compressedStr;
+                document.getElementById(`${type}-attachment-data`).value = compressedStr;
+                showToast("Foto berhasil dikompres dan diunggah!", "success");
+            });
+        };
+        reader.readAsDataURL(file);
+    } else {
+        // If PDF or other file, just read as base64 (might still be large, but we accept it for now)
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            currentAttachmentData = e.target.result;
+            document.getElementById(`${type}-attachment-data`).value = e.target.result;
+            showToast("File lampiran berhasil diunggah!", "success");
+        };
+        reader.readAsDataURL(file);
+    }
 }
 
 function injectEmployeeSelector() {
@@ -706,6 +748,22 @@ async function initRealCamera() {
         console.error("Webcam access error:", err);
         showToast("Gagal mengakses kamera perangkat!", "error");
     }
+}
+
+function capturePhotoBase64() {
+    const video = document.getElementById("webcam-video");
+    if (!video || !webcamStream) return "";
+    
+    const canvas = document.createElement("canvas");
+    const targetWidth = 480;
+    const targetHeight = (video.videoHeight / video.videoWidth) * targetWidth || 360;
+    
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    return canvas.toDataURL("image/jpeg", 0.6); 
 }
 
 function stopCameraStream() {
