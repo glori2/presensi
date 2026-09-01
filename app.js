@@ -13,7 +13,7 @@ try {
 
 // System State
 let employees = [
-    { id: "emp-2", nik: "3401010101590001", name: "Sunardi", role: "Lurah || Laki-laki || - || - || admin", department: "Admin", email: "sunardi@kalidengen.go.id", password: "password123", avatar_url: "" },
+    { id: "emp-2", nik: "3401010101590001", name: "Sunardi", role: "Lurah || Laki-laki || - || - || user", department: "Pimpinan", email: "sunardi@kalidengen.go.id", password: "password123", avatar_url: "" },
     { id: "emp-1", nik: "3401010808880002", name: "Muh. Masruri Mustofa", role: "Carik || Laki-laki || - || - || admin", department: "Sekretariat", email: "masruri@kalidengen.go.id", password: "muhmasru0808", avatar_url: "" },
     { id: "emp-1786507237509", nik: "3401010212960001", name: "Viki Wulandari", role: "Danarta || Perempuan || - || - || user", department: "Keuangan", email: "viki.wulandari@kalidengen.go.id", password: "password123", avatar_url: "" },
     { id: "emp-4", nik: "3401012211780001", name: "Agus Endarto", role: "Panata Laksana Sarta Pangripta || Laki-laki || - || - || user", department: "Sekretariat", email: "agus.endarto@kalidengen.go.id", password: "password123", avatar_url: "" },
