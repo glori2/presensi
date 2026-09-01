@@ -696,9 +696,22 @@ function checkTodayAttendanceState() {
 
     if (scheduleInfo) {
         if (!timeConfig.isWorkday) {
-            scheduleInfo.textContent = "🏖️ Hari ini Libur Akhir Pekan";
+            scheduleInfo.innerHTML = "🏖️ Hari ini Libur Akhir Pekan";
         } else {
-            scheduleInfo.textContent = `📅 Jadwal ${timeConfig.dayLabel}: Masuk ${timeConfig.startTime} – Pulang ${timeConfig.endTime}`;
+            let infoHtml = `📅 Jadwal ${timeConfig.dayLabel}: Masuk ${timeConfig.startTime} – Pulang ${timeConfig.endTime}`;
+            
+            if (logToday) {
+                if (logToday.type === "ABSEN") {
+                    infoHtml += `<br><span style="color:var(--warning);">Tercatat Izin/Cuti</span>`;
+                } else {
+                    infoHtml += `<br><span style="color:var(--success);">Tercatat Masuk: ${logToday.check_in_time} WIB</span>`;
+                    if (logToday.check_out_time) {
+                        infoHtml += `<br><span style="color:var(--primary);">Tercatat Pulang: ${logToday.check_out_time} WIB (${logToday.working_hours} Jam)</span>`;
+                    }
+                }
+            }
+            
+            scheduleInfo.innerHTML = infoHtml;
         }
     }
 
@@ -721,7 +734,7 @@ function checkTodayAttendanceState() {
         } else if (logToday.check_out_time) {
             btnCheckin.style.display  = "block";
             btnCheckin.disabled = true;
-            btnCheckin.textContent = "✅ Selesai Kerja Hari Ini";
+            btnCheckin.textContent = `✅ Selesai Kerja Hari Ini`;
             btnCheckout.style.display = "none";
         } else {
             const outStartMins  = timeToMinutes(timeConfig.outStart);
