@@ -964,13 +964,13 @@ async function performCheckOut() {
 
     const now = new Date();
     const checkOutTimeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const nowMins = now.getHours() * 60 + now.getMinutes();
 
     // Determine checkout status
     const timeConfig = getPresenceTimeConfig();
     let checkoutStatus = "Normal";
     if (timeConfig.isWorkday && timeConfig.earlyBefore) {
         const earlyMins  = timeToMinutes(timeConfig.earlyBefore);
-        const nowMins    = now.getHours() * 60 + now.getMinutes();
         if (nowMins < earlyMins) {
             checkoutStatus = "Pulang Cepat";
         }
