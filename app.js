@@ -490,26 +490,70 @@ async function verifyPamongPassword() {
     const emp = employees.find(e => e.id === pendingActiveUserId);
     if (!emp) return;
 
-    const correctPassword = emp.password || "password123";
+    const btnSubmit = document.querySelector("#pamong-password-modal .btn-primary");
+    const inputEl = document.getElementById("pamong-password-input");
+    
+    inputEl.disabled = true;
+    if (btnSubmit) btnSubmit.textContent = "Memverifikasi...";
 
-    if (inputPass === correctPassword) {
-        currentEmployeeId = pendingActiveUserId;
-        sessionStorage.removeItem("apresi_admin_unlocked");
-        updateUserProfileUI();
-        syncUIState();
-        showToast(`Selamat datang, ${emp.name}!`, "success");
-        document.getElementById("pamong-password-modal").style.display = "none";
+    try {
+        let authSuccess = false;
 
-        if (pendingRedirectView) {
-            switchView(pendingRedirectView);
+        // 1. Try to Login via Supabase Auth
+        if (supabaseClient) {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: emp.email,
+                password: inputPass
+            });
+
+            if (error) {
+                // 2. Auto-Migrate (Signup) if not registered
+                if (error.message.includes("Invalid login credentials") || error.status === 400) {
+                    const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
+                        email: emp.email,
+                        password: inputPass
+                    });
+                    
+                    if (signUpError) {
+                        showToast("Sandi salah atau gagal autentikasi!", "error");
+                    } else {
+                        authSuccess = true; // First time claim success
+                    }
+                } else {
+                    showToast("Gagal login: " + error.message, "error");
+                }
+            } else {
+                authSuccess = true;
+            }
+        } else {
+            // Fallback for local testing if no supabase
+            authSuccess = (inputPass === (emp.password || "password123"));
         }
 
-        pendingActiveUserId = null;
-        pendingRedirectView = null;
-    } else {
-        showToast("Sandi yang Anda masukkan salah!", "error");
-        document.getElementById("pamong-password-input").value = "";
-        document.getElementById("pamong-password-input").focus();
+        if (authSuccess) {
+            currentEmployeeId = pendingActiveUserId;
+            sessionStorage.removeItem("apresi_admin_unlocked");
+            updateUserProfileUI();
+            syncUIState();
+            showToast(`Selamat datang, ${emp.name}!`, "success");
+            document.getElementById("pamong-password-modal").style.display = "none";
+
+            if (pendingRedirectView) {
+                switchView(pendingRedirectView);
+            }
+
+            pendingActiveUserId = null;
+            pendingRedirectView = null;
+        } else {
+            inputEl.value = "";
+            inputEl.focus();
+        }
+    } catch (e) {
+        showToast("Terjadi kesalahan sistem.", "error");
+        console.error(e);
+    } finally {
+        inputEl.disabled = false;
+        if (btnSubmit) btnSubmit.textContent = "Login Akun";
     }
 }
 
