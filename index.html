@@ -823,6 +823,31 @@
                         </div>
                     </div>
 
+                    <!-- AI Insight Jurnal Kinerja Panel -->
+                    <div class="glass-card" style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
+                            <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #0284c7, #3b82f6); display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">📘</div>
+                            <div>
+                                <h2 class="card-title" style="margin: 0;">AI Insight Jurnal Kinerja</h2>
+                                <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0;">Analisis otomatis produktivitas dan volume tugas harian</p>
+                            </div>
+                        </div>
+                        <div id="ai-journal-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+                            <div style="background: rgba(2,132,199,0.08); border: 1px solid rgba(2,132,199,0.2); border-radius: 12px; padding: 1rem;">
+                                <div style="font-size: 0.7rem; color: #38bdf8; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem;">📊 Volume & Durasi Total</div>
+                                <div id="ai-journal-summary" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-primary);">Memuat analisis...</div>
+                            </div>
+                            <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: 12px; padding: 1rem;">
+                                <div style="font-size: 0.7rem; color: #34d399; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem;">🌟 Pamong Terproduktif</div>
+                                <div id="ai-journal-praise" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-primary);">Memuat...</div>
+                            </div>
+                            <div style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 12px; padding: 1rem;">
+                                <div style="font-size: 0.7rem; color: #f87171; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem;">⚠️ Minim Laporan (Kosong)</div>
+                                <div id="ai-journal-warning" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-primary);">Memuat...</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Charts Row -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
                         <!-- Chart Kehadiran Bulanan -->

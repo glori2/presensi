@@ -2446,6 +2446,54 @@ function generateAIInsight() {
     if (recs.length === 0) recs.push("✅ Kondisi kehadiran aparatur bulan ini sangat baik. Pertahankan disiplin kerja!");
 
     recEl.innerHTML = recs.join("<br>");
+
+    // === AI INSIGHT JURNAL KINERJA ===
+    const jSummary = document.getElementById("ai-journal-summary");
+    const jPraise = document.getElementById("ai-journal-praise");
+    const jWarning = document.getElementById("ai-journal-warning");
+    
+    if (jSummary) {
+        const monthJournals = dailyJournals.filter(j => j.date && j.date.startsWith(thisMonth) && j.status === 'Disetujui');
+        let totalMinutes = 0;
+        const empJournalStats = {};
+        
+        employees.forEach(emp => {
+            if (emp.role !== 'admin') empJournalStats[emp.name] = { count: 0, minutes: 0 };
+        });
+
+        monthJournals.forEach(j => {
+            totalMinutes += parseInt(j.duration) || 0;
+            if (empJournalStats[j.employee_name]) {
+                empJournalStats[j.employee_name].count++;
+                empJournalStats[j.employee_name].minutes += parseInt(j.duration) || 0;
+            }
+        });
+
+        const totalHours = Math.round(totalMinutes / 60);
+        
+        if (monthJournals.length === 0) {
+            const emptyMsg = `<em style="color:var(--text-secondary);">Belum ada jurnal yang disetujui bulan ini.</em>`;
+            jSummary.innerHTML = emptyMsg; jPraise.innerHTML = emptyMsg; jWarning.innerHTML = emptyMsg;
+        } else {
+            jSummary.innerHTML = `Bulan <strong>${monthName}</strong>: Tercatat <strong>${monthJournals.length}</strong> kegiatan yang telah disetujui dengan total durasi kerja <strong>${totalHours} Jam</strong>.`;
+            
+            const sortedProd = Object.entries(empJournalStats).sort((a,b) => b[1].minutes - a[1].minutes);
+            const topEmp = sortedProd[0];
+            if (topEmp && topEmp[1].count > 0) {
+                jPraise.innerHTML = `<strong>${topEmp[0]}</strong> adalah pamong terproduktif dengan <strong>${topEmp[1].count}</strong> kegiatan (${Math.round(topEmp[1].minutes/60)} Jam kerja tercatat).`;
+            } else {
+                jPraise.innerHTML = `<em style="color:var(--text-secondary);">Data belum cukup.</em>`;
+            }
+
+            const zeroEmp = sortedProd.filter(x => x[1].count === 0);
+            if (zeroEmp.length > 0) {
+                const names = zeroEmp.map(x => x[0]).join(", ");
+                jWarning.innerHTML = `⚠️ Terdapat <strong>${zeroEmp.length} pamong</strong> yang belum memiliki jurnal disetujui sama sekali: <span style="color:var(--text-secondary);">${names}</span>.`;
+            } else {
+                jWarning.innerHTML = `<span style="color:#34d399;">✅ Seluruh pamong telah tertib melaporkan minimal 1 jurnal kinerja.</span>`;
+            }
+        }
+    }
 }
 
 // Cleanup Old Photos
