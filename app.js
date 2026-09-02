@@ -1097,15 +1097,17 @@ async function performCheckOut() {
     const totalMins   = diffHours * 60 + diffMinutes - breakMinutes;
     const workingHours = parseFloat(Math.max(0, totalMins / 60).toFixed(1));
 
-    const detail = checkoutStatus === "Pulang Cepat"
+    const checkoutDetail = checkoutStatus === "Pulang Cepat"
         ? `Pulang pukul ${checkOutTimeStr} (Lebih awal dari ${timeConfig.earlyBefore})`
         : `Pulang pukul ${checkOutTimeStr}`;
+        
+    const newDetail = attendanceLogs[logIndex].detail + " | " + checkoutDetail;
 
     const updatedLog = {
         ...attendanceLogs[logIndex],
         check_out_time: checkOutTimeStr,
         working_hours:  workingHours,
-        checkout_status: checkoutStatus
+        detail: newDetail
     };
 
     let pushSuccess = false;
@@ -1114,7 +1116,7 @@ async function performCheckOut() {
             const { error } = await supabaseClient.from('attendance_logs').update({
                 check_out_time:   checkOutTimeStr,
                 working_hours:    workingHours,
-                checkout_status:  checkoutStatus
+                detail:           newDetail
             }).eq('id', updatedLog.id);
             if (!error) pushSuccess = true;
         } catch (e) {
