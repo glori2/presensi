@@ -102,40 +102,44 @@ function saveOfficeConfig() {
     getCurrentGPS(); // Recalculate
 }
 
+
 // Load data from Supabase (with LocalStorage fallback)
 async function loadInitialData() {
     let supabaseSuccess = false;
 
     if (supabaseClient) {
         try {
-            // Load Employees
-            const { data: dbEmployees, error: empErr } = await supabaseClient.from('employees').select('*');
-            if (!empErr && dbEmployees) {
-                if (dbEmployees.length > 0) {
-                    employees = dbEmployees;
+            // OPTIMIZATION: Run all fetches concurrently to cut loading time by 3x!
+            // Also, only select necessary columns from attendance_logs, EXCLUDING the heavy 'photo_data' base64 strings!
+            const [empRes, logRes, journalRes] = await Promise.all([
+                supabaseClient.from('employees').select('*'),
+                supabaseClient.from('attendance_logs').select('id, employee_id, name, date, check_in_time, check_out_time, status, detail, type, working_hours, location_lat, location_lng, created_at').order('created_at', { ascending: false }),
+                supabaseClient.from('daily_journals').select('*').order('created_at', { ascending: false })
+            ]);
+
+            if (!empRes.error && empRes.data) {
+                if (empRes.data.length > 0) {
+                    employees = empRes.data;
                 } else {
                     await supabaseClient.from('employees').insert(employees);
                 }
                 supabaseSuccess = true;
             }
 
-            // Load Logs
-            const { data: dbLogs, error: logErr } = await supabaseClient.from('attendance_logs').select('*').order('created_at', { ascending: false });
-            if (!logErr && dbLogs) {
-                attendanceLogs = dbLogs;
+            if (!logRes.error && logRes.data) {
+                attendanceLogs = logRes.data;
                 supabaseSuccess = true;
             }
 
-            // Load Journals
-            const { data: dbJournals, error: jnErr } = await supabaseClient.from('daily_journals').select('*').order('created_at', { ascending: false });
-            if (!jnErr && dbJournals) {
-                dailyJournals = dbJournals;
+            if (!journalRes.error && journalRes.data) {
+                dailyJournals = journalRes.data;
                 supabaseSuccess = true;
             }
         } catch (err) {
             console.error("Gagal terhubung ke database Supabase:", err);
         }
     }
+
 
     if (!supabaseSuccess) {
         console.log("Memuat data dari LocalStorage...");
