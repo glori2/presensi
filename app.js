@@ -667,7 +667,7 @@ function getCurrentGPS() {
             distanceHint.style.color = 'var(--warning)';
             latestDistance = 0; // Bypass warning for local demo if GPS fails
         },
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
     );
 }
 
