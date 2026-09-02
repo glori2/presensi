@@ -273,11 +273,7 @@ function switchView(viewName) {
         document.getElementById("welcome-message").textContent = "Matrik Realisasi Kinerja";
         document.getElementById("welcome-subtext").textContent = "Isi capaian kinerja Anda setiap bulan.";
         if (typeof initMatrikView === "function") initMatrikView();
-    } else if (viewName === "tukin-admin") {
-        if (!isCurrentUserAdmin()) {
-            showToast("Akses ditolak!", "error");
-            return;
-        }
+    
         const v = document.getElementById("view-tukin-admin"); if(v) v.classList.add("active");
         const n = document.getElementById("nav-tukin-admin"); if(n) n.classList.add("active");
         document.getElementById("welcome-message").textContent = "Rekapitulasi Tunjangan Kinerja";
@@ -336,7 +332,7 @@ function switchAdminSubtab(tabName) {
         renderAdminApprovalList();
     } else if (tabName === 'tukin') {
         document.getElementById("admin-subtab-tukin").style.display = "block";
-        renderTukinCalculation();
+        if (typeof initTukinAdminView === "function") initTukinAdminView();
     } else if (tabName === 'konfigurasi') {
         document.getElementById("admin-subtab-konfigurasi").style.display = "block";
         loadOfficeConfigFromStorage();
@@ -362,7 +358,7 @@ function updateUserProfileUI() {
         avatarEl.textContent = "?";
         adminNav.style.display = "none";
         if (document.getElementById("nav-matrik")) document.getElementById("nav-matrik").style.display = "none";
-        if (document.getElementById("nav-tukin-admin")) document.getElementById("nav-tukin-admin").style.display = "none";
+        
         return;
     }
 
@@ -382,10 +378,10 @@ function updateUserProfileUI() {
 
     if (isCurrentUserAdmin()) {
         adminNav.style.display = "block";
-        if (document.getElementById("nav-tukin-admin")) document.getElementById("nav-tukin-admin").style.display = "block";
+        
     } else {
         adminNav.style.display = "none";
-        if (document.getElementById("nav-tukin-admin")) document.getElementById("nav-tukin-admin").style.display = "none";
+        
         if (document.getElementById("view-admin").classList.contains("active") || 
             document.getElementById("view-tukin-admin").classList.contains("active")) {
             switchView('public');

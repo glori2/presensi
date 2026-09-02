@@ -85,14 +85,7 @@
                                 Matrik & Tukin
                             </a>
                         </li>
-                        <li class="nav-item" id="nav-tukin-admin" style="display:none;">
-                            <a href="#" onclick="switchView('tukin-admin')">
-                                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Rekap Tukin
-                            </a>
-                        </li>
+                        
                         <li class="nav-item" id="nav-profile">
                             <a href="#" onclick="switchView('profile')">
                                 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -484,88 +477,7 @@
             </div>
             
             <!-- VIEW: TUKIN ADMIN -->
-            <div id="view-tukin-admin" class="view-panel" style="display: none;">
-                <div class="header">
-                    <h2>Dashboard Tukin & Kinerja</h2>
-                    <p class="subtitle">Rekapitulasi Tunjangan Kinerja Aparatur Kalurahan</p>
-                </div>
-
-                <div class="stats-grid" style="margin-bottom: 2rem;">
-                    <div class="stat-card">
-                        <div class="stat-title">Total Pamong</div>
-                        <div class="stat-value" id="tukin-stat-pamong">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-title">Rata-Rata Kinerja</div>
-                        <div class="stat-value" id="tukin-stat-kinerja">0%</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-title">Rata-Rata Presensi</div>
-                        <div class="stat-value" id="tukin-stat-presensi">0%</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-title">Total Tukin Diterima</div>
-                        <div class="stat-value" id="tukin-stat-total" style="color: var(--primary);">Rp 0</div>
-                    </div>
-                </div>
-
-                <div class="glass-card">
-                    <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
-                        <div class="form-group" style="flex: 1; min-width: 150px;">
-                            <label>Tahun</label>
-                            <select id="tukin-admin-tahun" class="form-input" onchange="loadTukinAdminData()">
-                                <option value="2026">2026</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="flex: 1; min-width: 150px;">
-                            <label>Bulan</label>
-                            <select id="tukin-admin-bulan" class="form-input" onchange="loadTukinAdminData()">
-                                <option value="1">Januari</option>
-                                <option value="2">Februari</option>
-                                <option value="3">Maret</option>
-                                <option value="4">April</option>
-                                <option value="5">Mei</option>
-                                <option value="6">Juni</option>
-                                <option value="7">Juli</option>
-                                <option value="8">Agustus</option>
-                                <option value="9">September</option>
-                                <option value="10">Oktober</option>
-                                <option value="11">November</option>
-                                <option value="12">Desember</option>
-                            </select>
-                        </div>
-                        <div style="display:flex; align-items:flex-end; gap:0.5rem; padding-bottom: 5px;">
-                            <button id="btn-proses-kalkulasi" class="btn btn-primary" onclick="loadTukinAdminData()">Proses Kalkulasi</button>
-                            <button id="btn-export-kalkulasi" class="btn btn-secondary" onclick="exportTukinExcel()">Export Excel</button>
-                        </div>
-                    </div>
-
-                    <div class="table-container">
-                        <table class="table" style="min-width: 1200px;">
-                            <thead>
-                                <tr>
-                                    <th>Pamong</th>
-                                    <th>Jabatan</th>
-                                    <th>Kinerja<br>(60%)</th>
-                                    <th>Presensi<br>(40%)</th>
-                                    <th>N. Akhir</th>
-                                    <th>Kategori</th>
-                                    <th>Pagu Tukin</th>
-                                    <th>% Diterima</th>
-                                    <th>Sanksi</th>
-                                    <th>Tukin Diterima</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tukin-table-body">
-                                <tr><td colspan="11" style="text-align:center;">Klik "Proses Kalkulasi" untuk menghitung.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- MODAL DETAIL TUKIN -->
+            
             <div id="modal-tukin-detail" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); z-index: 9999; align-items: center; justify-content: center; overflow-y: auto;">
                 <div class="glass-card" style="width: 90%; max-width: 500px; padding: 2rem; border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); margin: 2rem auto; position: relative;">
                     <button onclick="document.getElementById('modal-tukin-detail').style.display='none'" style="position: absolute; right: 1rem; top: 1rem; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
@@ -586,7 +498,7 @@
                         <input type="radio" name="admin_subtab" value="persetujuan" onchange="switchAdminSubtab('persetujuan')">
                         <span class="type-label">Persetujuan Jurnal</span>
                     </label>
-                    <label class="type-option" style="display:none;">
+                    <label class="type-option">
                         <input type="radio" name="admin_subtab" value="tukin" onchange="switchAdminSubtab('tukin')">
                         <span class="type-label">Hitung TPP/Tukin</span>
                     </label>
@@ -765,33 +677,89 @@
 
                 <!-- Admin Sub-tab 3: Perhitungan Tukin / TPP -->
                 <div id="admin-subtab-tukin" class="admin-subtab-panel" style="display: none;">
-                    <div class="glass-card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                            <h2 class="card-title" style="margin-bottom: 0;">Simulasi Perhitungan TPP/Tukin Pamong</h2>
-                            <button class="btn btn-success" style="width: auto; padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="exportTukinExcel()">Export Excel Tukin</button>
-                        </div>
-                        <p style="font-size:0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
-                            Formula TPP/Tukin Bersih = **Skor Kehadiran (70%)** + **Skor Kinerja Jurnal (30%)** - **Denda Keterlambatan**. 
-                            (Standar TPP Penuh: Rp 1.500.000)
-                        </p>
-                        <div class="table-container">
-                            <table class="table" id="admin-tukin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Pamong (Staf)</th>
-                                        <th>Total Hadir / Izin</th>
-                                        <th>Hari Terlambat</th>
-                                        <th>Total Jam Kerja Disetujui</th>
-                                        <th>Rasio Kehadiran</th>
-                                        <th>Skor Kinerja Jurnal</th>
-                                        <th>Rekomendasi Tukin Bersih</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="admin-tukin-body"></tbody>
-                            </table>
-                        </div>
+
+                <div class="header">
+                    <h2>Dashboard Tukin & Kinerja</h2>
+                    <p class="subtitle">Rekapitulasi Tunjangan Kinerja Aparatur Kalurahan</p>
+                </div>
+
+                <div class="stats-grid" style="margin-bottom: 2rem;">
+                    <div class="stat-card">
+                        <div class="stat-title">Total Pamong</div>
+                        <div class="stat-value" id="tukin-stat-pamong">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">Rata-Rata Kinerja</div>
+                        <div class="stat-value" id="tukin-stat-kinerja">0%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">Rata-Rata Presensi</div>
+                        <div class="stat-value" id="tukin-stat-presensi">0%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-title">Total Tukin Diterima</div>
+                        <div class="stat-value" id="tukin-stat-total" style="color: var(--primary);">Rp 0</div>
                     </div>
                 </div>
+
+                <div class="glass-card">
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                        <div class="form-group" style="flex: 1; min-width: 150px;">
+                            <label>Tahun</label>
+                            <select id="tukin-admin-tahun" class="form-input" onchange="loadTukinAdminData()">
+                                <option value="2026">2026</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1; min-width: 150px;">
+                            <label>Bulan</label>
+                            <select id="tukin-admin-bulan" class="form-input" onchange="loadTukinAdminData()">
+                                <option value="1">Januari</option>
+                                <option value="2">Februari</option>
+                                <option value="3">Maret</option>
+                                <option value="4">April</option>
+                                <option value="5">Mei</option>
+                                <option value="6">Juni</option>
+                                <option value="7">Juli</option>
+                                <option value="8">Agustus</option>
+                                <option value="9">September</option>
+                                <option value="10">Oktober</option>
+                                <option value="11">November</option>
+                                <option value="12">Desember</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:flex-end; gap:0.5rem; padding-bottom: 5px;">
+                            <button id="btn-proses-kalkulasi" class="btn btn-primary" onclick="loadTukinAdminData()">Proses Kalkulasi</button>
+                            <button id="btn-export-kalkulasi" class="btn btn-secondary" onclick="exportTukinExcel()">Export Excel</button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="table" style="min-width: 1200px;">
+                            <thead>
+                                <tr>
+                                    <th>Pamong</th>
+                                    <th>Jabatan</th>
+                                    <th>Kinerja<br>(60%)</th>
+                                    <th>Presensi<br>(40%)</th>
+                                    <th>N. Akhir</th>
+                                    <th>Kategori</th>
+                                    <th>Pagu Tukin</th>
+                                    <th>% Diterima</th>
+                                    <th>Sanksi</th>
+                                    <th>Tukin Diterima</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tukin-table-body">
+                                <tr><td colspan="11" style="text-align:center;">Klik "Proses Kalkulasi" untuk menghitung.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            
+</div>
 
                 <!-- Admin Sub-tab 4: Konfigurasi Kantor -->
                 <div id="admin-subtab-konfigurasi" class="admin-subtab-panel" style="display: none;">
@@ -1008,5 +976,13 @@
 
     <script src="app.js"></script>
     <script src="tukin.js"></script>
+<!-- MODAL DETAIL TUKIN -->
+            <div id="modal-tukin-detail" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); z-index: 9999; align-items: center; justify-content: center; overflow-y: auto;">
+                <div class="glass-card" style="width: 90%; max-width: 500px; padding: 2rem; border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); margin: 2rem auto; position: relative;">
+                    <button onclick="document.getElementById('modal-tukin-detail').style.display='none'" style="position: absolute; right: 1rem; top: 1rem; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                    <h3 style="margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem;">Transparansi Perhitungan Tukin</h3>
+                    <div id="tukin-detail-content" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary);">
+                    </div>
+                </div>
 </body>
 </html>
