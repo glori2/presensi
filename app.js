@@ -325,6 +325,8 @@ function updateUserProfileUI() {
         document.getElementById("profile-role").textContent = "-";
         avatarEl.textContent = "?";
         adminNav.style.display = "none";
+        if (document.getElementById("nav-matrik")) document.getElementById("nav-matrik").style.display = "none";
+        if (document.getElementById("nav-tukin-admin")) document.getElementById("nav-tukin-admin").style.display = "none";
         return;
     }
 
@@ -340,11 +342,16 @@ function updateUserProfileUI() {
         avatarEl.textContent = initials;
     }
 
+    if (document.getElementById("nav-matrik")) document.getElementById("nav-matrik").style.display = "block";
+
     if (isCurrentUserAdmin()) {
         adminNav.style.display = "block";
+        if (document.getElementById("nav-tukin-admin")) document.getElementById("nav-tukin-admin").style.display = "block";
     } else {
         adminNav.style.display = "none";
-        if (document.getElementById("view-admin").classList.contains("active")) {
+        if (document.getElementById("nav-tukin-admin")) document.getElementById("nav-tukin-admin").style.display = "none";
+        if (document.getElementById("view-admin").classList.contains("active") || 
+            document.getElementById("view-tukin-admin").classList.contains("active")) {
             switchView('public');
         }
     }
