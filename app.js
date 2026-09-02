@@ -2440,9 +2440,9 @@ function exportPersonalJournalToExcel() {
     const dataToExport = myJournals.map(j => ({
         "Tanggal": j.date,
         "Aktivitas Kerja": j.activity,
-        "Target": j.target_volume + " " + j.unit,
-        "Realisasi": j.realization_volume + " " + j.unit,
-        "Durasi (Menit)": j.duration_minutes,
+        "Target": j.target || "-",
+        "Realisasi": j.realization || "-",
+        "Durasi (Menit)": j.duration || "-",
         "Status": j.status
     }));
     
