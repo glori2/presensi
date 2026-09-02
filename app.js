@@ -247,6 +247,26 @@ function switchView(viewName) {
         switchAdminSubtab('monitoring');
         // Reset subtab selectors
         document.querySelector('input[name="admin_subtab"][value="monitoring"]').checked = true;
+    } else if (viewName === "matrik") {
+        if (!currentEmployeeId) {
+            showToast("Silakan pilih akun pamong!", "warning");
+            return;
+        }
+        const v = document.getElementById("view-matrik"); if(v) v.classList.add("active");
+        const n = document.getElementById("nav-matrik"); if(n) n.classList.add("active");
+        document.getElementById("welcome-message").textContent = "Matrik Realisasi Kinerja";
+        document.getElementById("welcome-subtext").textContent = "Isi capaian kinerja Anda setiap bulan.";
+        if (typeof initMatrikView === "function") initMatrikView();
+    } else if (viewName === "tukin-admin") {
+        if (!isCurrentUserAdmin()) {
+            showToast("Akses ditolak!", "error");
+            return;
+        }
+        const v = document.getElementById("view-tukin-admin"); if(v) v.classList.add("active");
+        const n = document.getElementById("nav-tukin-admin"); if(n) n.classList.add("active");
+        document.getElementById("welcome-message").textContent = "Rekapitulasi Tunjangan Kinerja";
+        document.getElementById("welcome-subtext").textContent = "Hitung Tukin final menggunakan formula 60:40.";
+        if (typeof initTukinAdminView === "function") initTukinAdminView();
     }
 }
 
