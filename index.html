@@ -333,7 +333,10 @@
 
                         <!-- Right: Riwayat Jurnal -->
                         <div class="glass-card">
-                            <h2 class="card-title">Riwayat Jurnal Aktivitas Kerja Anda</h2>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                                <h2 class="card-title" style="margin-bottom: 0;">Riwayat Jurnal Aktivitas Kerja Anda</h2>
+                                <button class="btn btn-secondary" style="width: auto; padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="exportPersonalJournalToExcel()">🖨️ Cetak Jurnal (Excel)</button>
+                            </div>
                             <div class="table-container">
                                 <table class="table" id="personal-journal-table">
                                     <thead>

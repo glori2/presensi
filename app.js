@@ -2417,3 +2417,51 @@ async function cleanupOldPhotos() {
     }
 }
 
+
+
+// Export Personal Journal to Excel
+function exportPersonalJournalToExcel() {
+    if (!currentEmployeeId) return;
+    const emp = getCurrentEmployee();
+    const d = new Date();
+    const currentMonthStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
+    
+    // Filter only current user's journals for the current month
+    const myJournals = journals.filter(j => j.employee_id === currentEmployeeId && j.date.startsWith(currentMonthStr));
+    
+    if (myJournals.length === 0) {
+        showToast("Tidak ada data jurnal aktivitas di bulan ini untuk dicetak.", "warning");
+        return;
+    }
+    
+    // Sort by date
+    myJournals.sort((a,b) => new Date(a.date) - new Date(b.date));
+    
+    const dataToExport = myJournals.map(j => ({
+        "Tanggal": j.date,
+        "Aktivitas Kerja": j.activity,
+        "Target": j.target_volume + " " + j.unit,
+        "Realisasi": j.realization_volume + " " + j.unit,
+        "Durasi (Menit)": j.duration_minutes,
+        "Status": j.status
+    }));
+    
+    // Add title rows
+    const namaBulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][d.getMonth()];
+    
+    const ws2 = XLSX.utils.aoa_to_sheet([
+        ["BUKU JURNAL AKTIVITAS HARIAN PAMONG"],
+        ["KALURAHAN KALIDENGEN"],
+        [],
+        ["Nama Pamong:", emp.name],
+        ["Jabatan:", emp.department],
+        ["Periode:", `${namaBulan.toUpperCase()} ${d.getFullYear()}`],
+        []
+    ]);
+    XLSX.utils.sheet_add_json(ws2, dataToExport, { origin: "A8" });
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws2, "Jurnal Harian");
+    
+    XLSX.writeFile(wb, `Jurnal_Aktivitas_${emp.name.replace(/\s+/g, '_')}_${namaBulan}_${d.getFullYear()}.xlsx`);
+}
