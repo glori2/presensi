@@ -2427,7 +2427,7 @@ function exportPersonalJournalToExcel() {
     const currentMonthStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0');
     
     // Filter only current user's journals for the current month
-    const myJournals = journals.filter(j => j.employee_id === currentEmployeeId && j.date.startsWith(currentMonthStr));
+    const myJournals = dailyJournals.filter(j => j.employee_id === currentEmployeeId && j.date.startsWith(currentMonthStr));
     
     if (myJournals.length === 0) {
         showToast("Tidak ada data jurnal aktivitas di bulan ini untuk dicetak.", "warning");
