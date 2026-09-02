@@ -113,7 +113,7 @@ async function loadInitialData() {
             // Also, only select necessary columns from attendance_logs, EXCLUDING the heavy 'photo_data' base64 strings!
             const [empRes, logRes, journalRes] = await Promise.all([
                 supabaseClient.from('employees').select('*'),
-                supabaseClient.from('attendance_logs').select('id, employee_id, name, date, check_in_time, check_out_time, status, detail, type, working_hours, location_lat, location_lng, created_at, photo_data').order('created_at', { ascending: false }),
+                supabaseClient.from('attendance_logs').select('id, employee_id, name, date, check_in_time, check_out_time, status, detail, type, working_hours, created_at, photo_data').order('created_at', { ascending: false }),
                 supabaseClient.from('daily_journals').select('*').order('created_at', { ascending: false })
             ]);
 
