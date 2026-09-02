@@ -47,6 +47,42 @@ function escapeHTML(str) {
     );
 }
 
+// STORAGE UTILITY (Phase 2 Audit: Base64 to Bucket)
+async function uploadBase64ToStorage(base64Data, filename) {
+    if (!supabaseClient || !base64Data || !base64Data.startsWith('data:')) return base64Data;
+    try {
+        const arr = base64Data.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while(n--){
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], {type: mime});
+        
+        const { data, error } = await supabaseClient
+            .storage
+            .from('presensi-photos')
+            .upload(filename, blob, {
+                cacheControl: '3600',
+                upsert: true
+            });
+            
+        if (error) throw error;
+        
+        const { data: publicUrlData } = supabaseClient
+            .storage
+            .from('presensi-photos')
+            .getPublicUrl(filename);
+            
+        return publicUrlData.publicUrl;
+    } catch(err) {
+        console.error("Storage upload failed, falling back to base64:", err);
+        return base64Data; // Fallback so app doesn't break
+    }
+}
+
 // Office coordinates & radius configuration (Yogyakarta / Central Java - Kalurahan Kalidengen)
 let OFFICE_LAT = -7.892479202623596;
 let OFFICE_LNG = 110.08043257988396;
@@ -1105,6 +1141,13 @@ async function savePresenceLog(type, checkIn, checkOut, detail, status, photoDat
         finalWorkingHours = 8;
     }
 
+    let finalPhoto = photoData;
+    if (finalPhoto && finalPhoto.startsWith('data:')) {
+        const ext = finalPhoto.includes('image/png') ? 'png' : (finalPhoto.includes('application/pdf') ? 'pdf' : 'jpg');
+        const filename = `presensi/${today}_${employee.id}_${Date.now()}.${ext}`;
+        finalPhoto = await uploadBase64ToStorage(finalPhoto, filename);
+    }
+
     const newLog = {
         id: "log-" + Date.now(),
         employee_id: employee.id,
@@ -1116,7 +1159,7 @@ async function savePresenceLog(type, checkIn, checkOut, detail, status, photoDat
         status: status,
         detail: detail,
         working_hours: finalWorkingHours,
-        photo_data: photoData
+        photo_data: finalPhoto
     };
 
     let pushSuccess = false;

@@ -222,6 +222,12 @@ async function simpanRealisasi(matrikId, empId, bulan, tahun) {
         if (existing) buktiUrl = existing.bukti_url;
     }
 
+    if (buktiUrl && buktiUrl.startsWith('data:')) {
+        const ext = buktiUrl.includes('image/png') ? 'png' : (buktiUrl.includes('application/pdf') ? 'pdf' : 'jpg');
+        const filename = `matrik/${tahun}_${bulan}_${empId}_${matrikId}.${ext}`;
+        buktiUrl = await uploadBase64ToStorage(buktiUrl, filename);
+    }
+
     try {
         const payload = {
             employee_id: empId,
