@@ -32,9 +32,9 @@ let webcamStream = null;
 let editingEmployeeId = null;
 
 // Office coordinates & radius configuration (Yogyakarta / Central Java - Kalurahan Kalidengen)
-let OFFICE_LAT = -7.891848418181234;
-let OFFICE_LNG = 110.08084144673063;
-let MAX_RADIUS_METERS = 100;
+let OFFICE_LAT = -7.892479202623596;
+let OFFICE_LNG = 110.08043257988396;
+let MAX_RADIUS_METERS = 5000;
 let latestDistance = null;
 
 // Initialize on DOM load
@@ -50,6 +50,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
 // Load coordinates config from storage
 function loadOfficeConfigFromStorage() {
+    localStorage.removeItem("apresi_config"); // Force new coordinates for all clients
     if (localStorage.getItem("apresi_config")) {
         const config = JSON.parse(localStorage.getItem("apresi_config"));
         OFFICE_LAT = parseFloat(config.lat);
