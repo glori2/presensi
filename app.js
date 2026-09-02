@@ -277,9 +277,13 @@ function switchView(viewName) {
         document.getElementById("welcome-message").textContent = "Matrik Realisasi Kinerja";
         document.getElementById("welcome-subtext").textContent = "Isi capaian kinerja Anda setiap bulan.";
         if (typeof initMatrikView === "function") initMatrikView();
-    
-        const v = document.getElementById("view-tukin-admin"); if(v) v.classList.add("active");
-        const n = document.getElementById("nav-tukin-admin"); if(n) n.classList.add("active");
+    } else if (viewName === "tukin-admin") {
+        if (!isCurrentUserAdmin()) {
+            showToast("Akses ditolak!", "error");
+            return;
+        }
+        const v2 = document.getElementById("view-tukin-admin"); if(v2) v2.classList.add("active");
+        const n2 = document.getElementById("nav-tukin-admin"); if(n2) n2.classList.add("active");
         document.getElementById("welcome-message").textContent = "Rekapitulasi Tunjangan Kinerja";
         document.getElementById("welcome-subtext").textContent = "Hitung Tukin final menggunakan formula 60:40.";
         if (typeof initTukinAdminView === "function") initTukinAdminView();
