@@ -146,11 +146,15 @@ async function loadInitialData() {
     if (supabaseClient) {
         try {
             // OPTIMIZATION: Run all fetches concurrently to cut loading time by 3x!
-            // Also, only select necessary columns from attendance_logs, EXCLUDING the heavy 'photo_data' base64 strings!
+            // PHASE 4 AUDIT: Limit data to the last 30 days to prevent browser crashing from huge payloads
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const dateStr = thirtyDaysAgo.toISOString().split('T')[0];
+
             const [empRes, logRes, journalRes] = await Promise.all([
                 supabaseClient.from('employees').select('*'),
-                supabaseClient.from('attendance_logs').select('id, employee_id, name, date, check_in_time, check_out_time, status, detail, type, working_hours, created_at, photo_data').order('created_at', { ascending: false }),
-                supabaseClient.from('daily_journals').select('*').order('created_at', { ascending: false })
+                supabaseClient.from('attendance_logs').select('id, employee_id, name, date, check_in_time, check_out_time, status, detail, type, working_hours, created_at, photo_data').gte('date', dateStr).order('created_at', { ascending: false }),
+                supabaseClient.from('daily_journals').select('*').gte('date', dateStr).order('created_at', { ascending: false })
             ]);
 
             if (!empRes.error && empRes.data) {
