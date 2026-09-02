@@ -553,22 +553,18 @@ function exportTukinExcel() {
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     
-    // Add title rows
-    XLSX.utils.sheet_add_aoa(ws, [
-        ["REKAPITULASI TUNJANGAN KINERJA APARATUR"],
-        ["KALURAHAN KALIDENGEN"],
-        [`PERIODE: ${namaBulan.toUpperCase()} ${tahun}`],
-        []
-    ], { origin: "A1" });
-    
-    // Shift data down by 4 rows (already handled by json_to_sheet if we do it differently, let's just make a new sheet)
     const ws2 = XLSX.utils.aoa_to_sheet([
+        ["PEMERINTAH KABUPATEN KULON PROGO"],
+        ["KAPANEWON TEMON"],
+        ["PEMERINTAH KALURAHAN KALIDENGEN"],
+        ["Kalidengen I, Kalidengen, Temon, Kulon Progo, Kode Pos 55654, Telp. 08112642340"],
+        ["Email: desakalidengen@gmail.com, Website: kalidengen-kulonprogo.desa.id"],
+        [],
         ["REKAPITULASI TUNJANGAN KINERJA APARATUR"],
-        ["KALURAHAN KALIDENGEN"],
         [`PERIODE: ${namaBulan.toUpperCase()} ${tahun}`],
         []
     ]);
-    XLSX.utils.sheet_add_json(ws2, dataToExport, { origin: "A5" });
+    XLSX.utils.sheet_add_json(ws2, dataToExport, { origin: "A10" });
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws2, "Rekap Tukin");

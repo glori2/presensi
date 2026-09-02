@@ -1817,12 +1817,23 @@ function exportToExcel() {
             };
         });
 
-        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const ws2 = XLSX.utils.aoa_to_sheet([
+            ["PEMERINTAH KABUPATEN KULON PROGO"],
+            ["KAPANEWON TEMON"],
+            ["PEMERINTAH KALURAHAN KALIDENGEN"],
+            ["Kalidengen I, Kalidengen, Temon, Kulon Progo, Kode Pos 55654, Telp. 08112642340"],
+            ["Email: desakalidengen@gmail.com, Website: kalidengen-kulonprogo.desa.id"],
+            [],
+            ["REKAPITULASI KEHADIRAN PAMONG"],
+            [`TANGGAL CETAK: ${formatDateIndo(new Date().toISOString().split('T')[0])}`],
+            []
+        ]);
+        XLSX.utils.sheet_add_json(ws2, excelData, { origin: "A10" });
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Kehadiran");
+        XLSX.utils.book_append_sheet(workbook, ws2, "Laporan Kehadiran");
 
         const max_len = [5, 12, 25, 20, 15, 15, 12, 12, 12, 18, 35];
-        worksheet["!cols"] = max_len.map(w => ({ wch: w }));
+        ws2["!cols"] = max_len.map(w => ({ wch: w }));
 
         XLSX.writeFile(workbook, `Laporan_Kehadiran_Pamong_${new Date().toISOString().split("T")[0]}.xlsx`);
         showToast("Laporan Excel berhasil diunduh!", "success");
@@ -2450,15 +2461,20 @@ function exportPersonalJournalToExcel() {
     const namaBulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][d.getMonth()];
     
     const ws2 = XLSX.utils.aoa_to_sheet([
+        ["PEMERINTAH KABUPATEN KULON PROGO"],
+        ["KAPANEWON TEMON"],
+        ["PEMERINTAH KALURAHAN KALIDENGEN"],
+        ["Kalidengen I, Kalidengen, Temon, Kulon Progo, Kode Pos 55654, Telp. 08112642340"],
+        ["Email: desakalidengen@gmail.com, Website: kalidengen-kulonprogo.desa.id"],
+        [],
         ["BUKU JURNAL AKTIVITAS HARIAN PAMONG"],
-        ["KALURAHAN KALIDENGEN"],
         [],
         ["Nama Pamong:", emp.name],
         ["Jabatan:", emp.department],
         ["Periode:", `${namaBulan.toUpperCase()} ${d.getFullYear()}`],
         []
     ]);
-    XLSX.utils.sheet_add_json(ws2, dataToExport, { origin: "A8" });
+    XLSX.utils.sheet_add_json(ws2, dataToExport, { origin: "A13" });
     
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws2, "Jurnal Harian");
