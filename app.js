@@ -149,7 +149,7 @@ async function loadInitialData() {
             // PHASE 4 AUDIT: Limit data to the last 30 days to prevent browser crashing from huge payloads
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const dateStr = thirtyDaysAgo.toISOString().split('T')[0];
+            const dateStr = thirtyDaysAgo.toLocaleDateString('en-CA');
 
             const [empRes, logRes, journalRes] = await Promise.all([
                 supabaseClient.from('employees').select('*'),
@@ -361,7 +361,7 @@ function switchEmployeeSubtab(tabName) {
     } else if (tabName === 'jurnal') {
         document.getElementById("emp-subtab-jurnal").style.display = "block";
         // Set default date for journal input as today
-        document.getElementById("journal-date").value = new Date().toISOString().split("T")[0];
+        document.getElementById("journal-date").value = new Date().toLocaleDateString('en-CA');
         renderPersonalJournals();
     }
 }
@@ -771,7 +771,7 @@ function timeToMinutes(timeStr) {
 // Check Presence State & Lock
 function checkTodayAttendanceState() {
     const now = new Date();
-    const today = now.toISOString().split("T")[0];
+    const today = now.toLocaleDateString('en-CA');
     const logToday = attendanceLogs.find(l => l.employee_id === currentEmployeeId && l.date === today);
 
     const btnCheckin  = document.getElementById("btn-checkin");
@@ -944,7 +944,7 @@ function stopCameraStream() {
 // Check-In Action
 async function performCheckIn() {
     const type = document.querySelector('input[name="presence_type"]:checked').value;
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toLocaleDateString('en-CA');
 
     // Double check today
     if (attendanceLogs.some(l => l.employee_id === currentEmployeeId && l.date === today)) {
@@ -1054,7 +1054,7 @@ async function performCheckIn() {
 
 // Check-Out Action
 async function performCheckOut() {
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const logIndex = attendanceLogs.findIndex(l => l.employee_id === currentEmployeeId && l.date === today);
 
     if (logIndex === -1) {
@@ -1138,7 +1138,7 @@ async function performCheckOut() {
 // Log Saver
 async function savePresenceLog(type, checkIn, checkOut, detail, status, photoData) {
     const employee = getCurrentEmployee();
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toLocaleDateString('en-CA');
 
     let finalCheckOut = checkOut;
     let finalWorkingHours = 0;
@@ -1438,7 +1438,7 @@ function exportTukinExcel() {
         const widths = [5, 12, 25, 20, 12, 15, 30, 20, 20, 22, 25];
         worksheet["!cols"] = widths.map(w => ({ wch: w }));
 
-        XLSX.writeFile(workbook, `Rekap_Tukin_Pamong_Kalidengen_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(workbook, `Rekap_Tukin_Pamong_Kalidengen_${new Date().toLocaleDateString('en-CA')}.xlsx`);
         showToast("Laporan Excel Tukin berhasil diunduh!", "success");
     } catch (e) {
         console.error(e);
@@ -1602,7 +1602,7 @@ function renderPublicDashboard() {
 
     grid.innerHTML = "";
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const todayLogs = attendanceLogs.filter(l => l.date === today);
 
     employees.forEach(emp => {
@@ -1728,7 +1728,7 @@ function updateAdminStats() {
 
     if (totalEmpEl) totalEmpEl.textContent = employees.length;
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const todayLogs = attendanceLogs.filter(l => l.date === today);
 
     const wfoCount = todayLogs.filter(l => l.type === "WFO").length;
@@ -1893,7 +1893,7 @@ function exportToExcel() {
             ["Email: desakalidengen@gmail.com, Website: kalidengen-kulonprogo.desa.id"],
             [],
             ["REKAPITULASI KEHADIRAN PAMONG"],
-            [`TANGGAL CETAK: ${formatDateIndo(new Date().toISOString().split('T')[0])}`],
+            [`TANGGAL CETAK: ${formatDateIndo(new Date().toLocaleDateString('en-CA'))}`],
             []
         ]);
         XLSX.utils.sheet_add_json(ws2, excelData, { origin: "A10" });
@@ -1903,7 +1903,7 @@ function exportToExcel() {
         const max_len = [5, 12, 25, 20, 15, 15, 12, 12, 12, 18, 35];
         ws2["!cols"] = max_len.map(w => ({ wch: w }));
 
-        XLSX.writeFile(workbook, `Laporan_Kehadiran_Pamong_${new Date().toISOString().split("T")[0]}.xlsx`);
+        XLSX.writeFile(workbook, `Laporan_Kehadiran_Pamong_${new Date().toLocaleDateString('en-CA')}.xlsx`);
         showToast("Laporan Excel berhasil diunduh!", "success");
     } catch (e) {
         console.error("Gagal mengekspor Excel:", e);
@@ -1944,7 +1944,7 @@ function exportToCSV() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `rekap_presensi_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `rekap_presensi_${new Date().toLocaleDateString('en-CA')}.csv`);
     document.body.appendChild(link);
 
     link.click();
@@ -2508,7 +2508,7 @@ async function cleanupOldPhotos() {
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 30);
-    const cutoffStr = cutoffDate.toISOString().split("T")[0];
+    const cutoffStr = cutoffDate.toLocaleDateString('en-CA');
 
     // Find logs in memory
     const targetLogs = attendanceLogs.filter(l => l.date < cutoffStr && l.photo_data && l.photo_data.length > 50);
