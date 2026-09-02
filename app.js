@@ -31,6 +31,22 @@ let clockInterval = null;
 let webcamStream = null;
 let editingEmployeeId = null;
 
+// ==========================================
+// SECURITY UTILITIES (Phase 2 Audit: Anti-XSS)
+// ==========================================
+function escapeHTML(str) {
+    if (typeof str !== 'string') return str;
+    return str.replace(/[&<>'"]/g, 
+        tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        }[tag] || tag)
+    );
+}
+
 // Office coordinates & radius configuration (Yogyakarta / Central Java - Kalurahan Kalidengen)
 let OFFICE_LAT = -7.892479202623596;
 let OFFICE_LNG = 110.08043257988396;

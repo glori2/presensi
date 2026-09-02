@@ -157,10 +157,10 @@ function renderMatrikTable(emp, bulan, tahun) {
 
         html += `
             <tr>
-                <td>${t.nomor_kegiatan}</td>
-                <td style="white-space: normal; line-height: 1.4;">${t.deskripsi}</td>
+                <td>${escapeHTML(t.nomor_kegiatan)}</td>
+                <td style="white-space: normal; line-height: 1.4;">${escapeHTML(t.deskripsi)}</td>
                 <td style="text-align: center; font-weight: bold; color: var(--primary);">${targetBulan}</td>
-                <td>${t.satuan}</td>
+                <td>${escapeHTML(t.satuan)}</td>
                 <td>${inputHtml}</td>
                 <td style="font-weight: bold;">${capaianPersen}%</td>
                 <td>${actionHtml}</td>
