@@ -382,8 +382,7 @@ function updateUserProfileUI() {
     } else {
         adminNav.style.display = "none";
         
-        if (document.getElementById("view-admin").classList.contains("active") || 
-            document.getElementById("view-tukin-admin").classList.contains("active")) {
+        if (document.getElementById("view-admin").classList.contains("active")) {
             switchView('public');
         }
     }
