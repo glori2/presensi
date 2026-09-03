@@ -1054,6 +1054,11 @@ async function performCheckIn() {
 
 // Check-Out Action
 async function performCheckOut() {
+    // ANTI FAT-FINGER: Mencegah pamong tidak sengaja absen pulang
+    if (!confirm("Apakah Anda yakin ingin mengakhiri jam kerja dan absen pulang sekarang?")) {
+        return; // Batal absen pulang jika pencet Tidak/Batal
+    }
+
     const today = new Date().toLocaleDateString('en-CA');
     const logIndex = attendanceLogs.findIndex(l => l.employee_id === currentEmployeeId && l.date === today);
 
