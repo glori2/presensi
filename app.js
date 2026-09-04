@@ -1299,6 +1299,40 @@ function renderPersonalJournals() {
     });
 }
 
+// Refresh Admin Journals from Database (Auto-sync)
+async function refreshAdminJournals() {
+    if (!supabaseClient) {
+        showToast("Koneksi database tidak tersedia.", "error");
+        return;
+    }
+
+    const btn = document.querySelector("#admin-subtab-persetujuan .btn-secondary");
+    if (btn) btn.textContent = "Menyinkronkan...";
+
+    try {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const dateStr = thirtyDaysAgo.toLocaleDateString('en-CA');
+        
+        const { data, error } = await supabaseClient.from('daily_journals')
+            .select('*')
+            .gte('date', dateStr)
+            .order('created_at', { ascending: false });
+
+        if (!error && data) {
+            dailyJournals = data;
+            renderAdminApprovalList();
+            showToast("Data jurnal berhasil diperbarui!", "success");
+        } else {
+            showToast("Gagal memperbarui data jurnal.", "error");
+        }
+    } catch (e) {
+        console.error("Error refreshing journals:", e);
+    } finally {
+        if (btn) btn.textContent = "🔄 Segarkan Data";
+    }
+}
+
 // Render Admin Journal Approvals Tab
 function renderAdminApprovalList() {
     const tbody = document.getElementById("admin-approval-body");
