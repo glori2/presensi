@@ -145,16 +145,13 @@ async function loadInitialData() {
 
     if (supabaseClient) {
         try {
-            // OPTIMIZATION: Run all fetches concurrently to cut loading time by 3x!
-            // PHASE 4 AUDIT: Limit data to the last 30 days to prevent browser crashing from huge payloads
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const dateStr = thirtyDaysAgo.toLocaleDateString('en-CA');
+            // OPTIMIZATION: Initial load only fetches TODAY's logs for the Public Dashboard.
+            // Journals and historical logs are lazy-loaded upon login to save massive bandwidth.
+            const todayStr = new Date().toLocaleDateString('en-CA');
 
-            const [empRes, logRes, journalRes] = await Promise.all([
+            const [empRes, logRes] = await Promise.all([
                 supabaseClient.from('employees').select('*'),
-                supabaseClient.from('attendance_logs').select('id, employee_id, name, date, check_in_time, check_out_time, status, detail, type, working_hours, created_at, photo_data').gte('date', dateStr).order('created_at', { ascending: false }),
-                supabaseClient.from('daily_journals').select('*').gte('date', dateStr).order('created_at', { ascending: false })
+                supabaseClient.from('attendance_logs').select('id, employee_id, name, date, check_in_time, check_out_time, status, detail, type, working_hours, created_at, photo_data').eq('date', todayStr).order('created_at', { ascending: false })
             ]);
 
             if (!empRes.error && empRes.data) {
@@ -168,11 +165,6 @@ async function loadInitialData() {
 
             if (!logRes.error && logRes.data) {
                 attendanceLogs = logRes.data;
-                supabaseSuccess = true;
-            }
-
-            if (!journalRes.error && journalRes.data) {
-                dailyJournals = journalRes.data;
                 supabaseSuccess = true;
             }
         } catch (err) {
@@ -620,6 +612,38 @@ async function verifyPamongPassword() {
         if (authSuccess) {
             currentEmployeeId = pendingActiveUserId;
             sessionStorage.removeItem("apresi_admin_unlocked");
+            
+            // OPTIMIZATION: Lazy Load scoped data to save 90% bandwidth for normal pamong!
+            if (btnSubmit) btnSubmit.textContent = "Menyiapkan Data...";
+            try {
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                const dateStr = thirtyDaysAgo.toLocaleDateString('en-CA');
+                
+                let logQuery = supabaseClient.from('attendance_logs').select('id, employee_id, name, date, check_in_time, check_out_time, status, detail, type, working_hours, created_at, photo_data').gte('date', dateStr).order('created_at', { ascending: false });
+                let journalQuery = supabaseClient.from('daily_journals').select('*').gte('date', dateStr).order('created_at', { ascending: false });
+                
+                // If NOT admin, slice the data just for this user
+                if (emp.role !== 'admin') {
+                    logQuery = logQuery.eq('employee_id', currentEmployeeId);
+                    journalQuery = journalQuery.eq('employee_id', currentEmployeeId);
+                }
+                
+                const [lRes, jRes] = await Promise.all([logQuery, journalQuery]);
+                
+                if (!lRes.error && lRes.data) {
+                    // Combine with today's public logs so landing page doesn't break
+                    const newLogs = lRes.data;
+                    const publicTodayLogs = attendanceLogs.filter(l => l.date === new Date().toLocaleDateString('en-CA') && !newLogs.some(nl => nl.id === l.id));
+                    attendanceLogs = [...newLogs, ...publicTodayLogs];
+                }
+                if (!jRes.error && jRes.data) {
+                    dailyJournals = jRes.data;
+                }
+            } catch(fetchErr) {
+                console.error("Gagal menarik riwayat data:", fetchErr);
+            }
+
             updateUserProfileUI();
             syncUIState();
             showToast(`Selamat datang, ${emp.name}!`, "success");
