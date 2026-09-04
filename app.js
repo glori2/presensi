@@ -1404,6 +1404,36 @@ async function rejectJournal(id) {
     renderAdminApprovalList();
 }
 
+// Bulk Approve All Pending Journals
+async function approveAllJournals() {
+    const pendings = dailyJournals.filter(j => j.status === "Pending");
+    if (pendings.length === 0) {
+        showToast("Tidak ada jurnal yang perlu disetujui.", "warning");
+        return;
+    }
+
+    if (!confirm(`Apakah Anda yakin ingin menyetujui sekaligus ${pendings.length} jurnal?`)) return;
+
+    const pendingIds = pendings.map(j => j.id);
+
+    // Update local array
+    pendings.forEach(j => j.status = "Disetujui");
+
+    // Update Database
+    if (supabaseClient) {
+        try {
+            await supabaseClient.from('daily_journals')
+                .update({ status: "Disetujui" })
+                .in('id', pendingIds);
+        } catch (e) { console.error("Gagal bulk approve:", e); }
+    }
+
+    localStorage.setItem("apresi_journals", JSON.stringify(dailyJournals));
+    showToast(`${pendings.length} jurnal berhasil disetujui!`, "success");
+    syncUIState();
+    renderAdminApprovalList();
+}
+
 // TPP/Tukin Calculator (Formula: Rp 1.500.000 max. Kehadiran 70%, Jurnal Kinerja 30%. Potongan keterlambatan Rp 25.000/hari)
 function renderTukinCalculation() {
     const tbody = document.getElementById("admin-tukin-body");

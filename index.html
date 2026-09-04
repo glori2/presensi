@@ -655,9 +655,12 @@
                 <!-- Admin Sub-tab 2: Persetujuan Jurnal -->
                 <div id="admin-subtab-persetujuan" class="admin-subtab-panel" style="display: none;">
                     <div class="glass-card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
                             <h2 class="card-title" style="margin-bottom: 0;">Persetujuan Jurnal Harian Pamong</h2>
-                            <button class="btn btn-secondary" style="width: auto; padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="refreshAdminJournals()">🔄 Segarkan Data</button>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-success" style="width: auto; padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="approveAllJournals()">✅ Setujui Semua</button>
+                                <button class="btn btn-secondary" style="width: auto; padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="refreshAdminJournals()">🔄 Segarkan Data</button>
+                            </div>
                         </div>
                         <div class="table-container">
                             <table class="table" id="admin-approval-table">
