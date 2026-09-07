@@ -86,7 +86,7 @@ async function uploadBase64ToStorage(base64Data, filename) {
 // Office coordinates & radius configuration (Yogyakarta / Central Java - Kalurahan Kalidengen)
 let OFFICE_LAT = -7.892479202623596;
 let OFFICE_LNG = 110.08043257988396;
-let MAX_RADIUS_METERS = 5000;
+let MAX_RADIUS_METERS = 10000;
 let latestDistance = null;
 
 // Initialize on DOM load
