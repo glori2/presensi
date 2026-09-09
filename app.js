@@ -623,11 +623,10 @@ async function verifyPamongPassword() {
                 let logQuery = supabaseClient.from('attendance_logs').select('id, employee_id, name, date, check_in_time, check_out_time, status, detail, type, working_hours, created_at, photo_data').gte('date', dateStr).order('created_at', { ascending: false });
                 let journalQuery = supabaseClient.from('daily_journals').select('*').gte('date', dateStr).order('created_at', { ascending: false });
                 
-                // If NOT admin, slice the data just for this user
-                if (parseEmployeeExtra(emp).privilege !== 'admin') {
-                    logQuery = logQuery.eq('employee_id', currentEmployeeId);
-                    journalQuery = journalQuery.eq('employee_id', currentEmployeeId);
-                }
+                // OPTIMIZATION: Always slice data just for this user upon login for lightning-fast speeds.
+                // Admins will fetch global data manually via "Segarkan Data" buttons when needed.
+                logQuery = logQuery.eq('employee_id', currentEmployeeId);
+                journalQuery = journalQuery.eq('employee_id', currentEmployeeId);
                 
                 const [lRes, jRes] = await Promise.all([logQuery, journalQuery]);
                 
