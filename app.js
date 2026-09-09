@@ -88,6 +88,8 @@ let OFFICE_LAT = -7.892479202623596;
 let OFFICE_LNG = 110.08043257988396;
 let MAX_RADIUS_METERS = 10000;
 let latestDistance = null;
+let adminDataSynced = false;
+let adminJournalsSynced = false;
 
 // Initialize on DOM load
 window.addEventListener("DOMContentLoaded", async () => {
@@ -1335,6 +1337,7 @@ async function refreshAdminJournals() {
 
         if (!error && data) {
             dailyJournals = data;
+            adminJournalsSynced = true;
             renderAdminApprovalList();
             showToast("Data jurnal berhasil diperbarui!", "success");
         } else {
@@ -1366,6 +1369,7 @@ async function refreshAdminLogs() {
 
         if (!error && data) {
             attendanceLogs = data;
+            adminDataSynced = true;
             localStorage.setItem("apresi_logs", JSON.stringify(attendanceLogs));
             updateAdminStats();
             renderAdminLogs();
@@ -1810,7 +1814,10 @@ function renderAdminLogs() {
     const query = document.getElementById("search-employee").value.toLowerCase();
     const typeFilter = document.getElementById("filter-presence-type").value;
 
-    const filtered = attendanceLogs.filter(log => {
+    const today = new Date().toLocaleDateString('en-CA');
+    const logsToRender = adminDataSynced ? attendanceLogs : attendanceLogs.filter(l => l.date === today);
+
+    const filtered = logsToRender.filter(log => {
         const matchName = log.name.toLowerCase().includes(query);
         const matchType = typeFilter === "ALL" || log.type === typeFilter;
         return matchName && matchType;
@@ -2440,9 +2447,15 @@ function renderDisciplineRanking() {
     if (!tbody) return;
 
     // Calculate total working days in the selected period (approx)
+    let logsToProcess = attendanceLogs;
+    if (!adminDataSynced) {
+        const today = new Date().toLocaleDateString('en-CA');
+        logsToProcess = attendanceLogs.filter(l => l.date === today);
+    }
+
     const filteredLogs = monthFilter === "all"
-        ? attendanceLogs
-        : attendanceLogs.filter(l => l.date && l.date.startsWith(monthFilter));
+        ? logsToProcess
+        : logsToProcess.filter(l => l.date && l.date.startsWith(monthFilter));
 
     const uniqueDates = new Set(filteredLogs.map(l => l.date));
     const totalWorkingDays = uniqueDates.size > 0 ? uniqueDates.size : 1;
@@ -2504,9 +2517,16 @@ function renderDisciplineRanking() {
 function generateAIInsight() {
     const now = new Date();
     const thisMonth = now.toISOString().substring(0, 7);
-    const monthName = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    let monthName = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
 
-    const monthLogs = attendanceLogs.filter(l => l.date && l.date.startsWith(thisMonth));
+    let logsToProcess = attendanceLogs;
+    if (!adminDataSynced) {
+        const today = new Date().toLocaleDateString('en-CA');
+        logsToProcess = attendanceLogs.filter(l => l.date === today);
+        monthName = "Hari Ini"; // Adjust text so it makes sense
+    }
+
+    const monthLogs = logsToProcess.filter(l => l.date && l.date.startsWith(thisMonth));
     const totalLogs = monthLogs.length;
     const hadirLogs = monthLogs.filter(l => l.type !== "ABSEN");
     const terlambatLogs = monthLogs.filter(l => l.status === "Terlambat");
@@ -2594,12 +2614,18 @@ function generateAIInsight() {
     const jWarning = document.getElementById("ai-journal-warning");
     
     if (jSummary) {
-        const monthJournals = dailyJournals.filter(j => j.date && j.date.startsWith(thisMonth) && j.status === 'Disetujui');
+        let journalsToProcess = dailyJournals;
+        if (!adminJournalsSynced) {
+            const today = new Date().toLocaleDateString('en-CA');
+            journalsToProcess = dailyJournals.filter(j => j.date === today);
+        }
+
+        const monthJournals = journalsToProcess.filter(j => j.date && j.date.startsWith(thisMonth) && j.status === 'Disetujui');
         let totalMinutes = 0;
         const empJournalStats = {};
         
         employees.forEach(emp => {
-            if (emp.role !== 'admin') empJournalStats[emp.name] = { count: 0, minutes: 0 };
+            if (parseEmployeeExtra(emp).privilege !== 'admin') empJournalStats[emp.name] = { count: 0, minutes: 0 };
         });
 
         monthJournals.forEach(j => {
