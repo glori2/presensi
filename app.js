@@ -624,7 +624,7 @@ async function verifyPamongPassword() {
                 let journalQuery = supabaseClient.from('daily_journals').select('*').gte('date', dateStr).order('created_at', { ascending: false });
                 
                 // If NOT admin, slice the data just for this user
-                if (emp.role !== 'admin') {
+                if (parseEmployeeExtra(emp).privilege !== 'admin') {
                     logQuery = logQuery.eq('employee_id', currentEmployeeId);
                     journalQuery = journalQuery.eq('employee_id', currentEmployeeId);
                 }
@@ -1345,6 +1345,38 @@ async function refreshAdminJournals() {
         console.error("Error refreshing journals:", e);
     } finally {
         if (btn) btn.textContent = "🔄 Segarkan Data";
+    }
+}
+
+// Refresh Admin Logs (Auto-sync)
+async function refreshAdminLogs() {
+    if (!supabaseClient) {
+        showToast("Koneksi database tidak tersedia.", "error");
+        return;
+    }
+
+    try {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const dateStr = thirtyDaysAgo.toLocaleDateString('en-CA');
+        
+        const { data, error } = await supabaseClient.from('attendance_logs')
+            .select('id, employee_id, name, date, check_in_time, check_out_time, status, detail, type, working_hours, created_at, photo_data')
+            .gte('date', dateStr)
+            .order('created_at', { ascending: false });
+
+        if (!error && data) {
+            attendanceLogs = data;
+            localStorage.setItem("apresi_logs", JSON.stringify(attendanceLogs));
+            updateAdminStats();
+            renderAdminLogs();
+            renderDisciplineRanking();
+            showToast("Data presensi berhasil diperbarui!", "success");
+        } else {
+            showToast("Gagal memperbarui data presensi.", "error");
+        }
+    } catch (e) {
+        console.error("Error refreshing logs:", e);
     }
 }
 

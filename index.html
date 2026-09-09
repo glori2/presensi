@@ -880,13 +880,14 @@
 
                     <!-- Ranking Kedisiplinan -->
                     <div class="glass-card">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px;">
                             <h2 class="card-title" style="margin: 0;">🏅 Ranking Kedisiplinan Aparatur</h2>
-                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                <span style="font-size: 0.72rem; color: var(--text-secondary);">Skor = Kehadiran% × 70 + Bonus</span>
                                 <select id="ranking-month-filter" class="form-input" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.75rem;" onchange="renderDisciplineRanking()">
                                     <option value="all">Semua Bulan</option>
                                 </select>
-                                <span style="font-size: 0.72rem; color: var(--text-secondary);">Skor = Kehadiran% × 70 + KepuntuhanBonus</span>
+                                <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="refreshAdminLogs()">🔄 Segarkan</button>
                             </div>
                         </div>
                         <div class="table-container">
